@@ -76,9 +76,6 @@ Foco:
 - [ ] Definir prioridades das tarefas
 - [ ] Registrar requisitos no backlog
 
-**Prioridade:** Alta
-
-
 ---
 
 # 3. Documentação
@@ -95,9 +92,6 @@ Foco:
 - [ ] Padronizar linguagem
 - [ ] Corrigir erros de tradução
 
-**Prioridade:** Alta
-
-
 ### DOC-002 — Revisar documentação
 **Responsáveis:** Todos
 
@@ -107,9 +101,6 @@ Foco:
 - [ ] Organizar seções
 - [ ] Remover informações desnecessárias
 - [ ] Padronizar títulos e subtítulos
-
-**Prioridade:** Alta
-
 
 ### DOC-003 — Documentar instalação e execução
 **Responsáveis:** Todos
@@ -134,7 +125,6 @@ Foco:
 - [ ] Atualizar exemplos
 - [ ] Atualizar screenshots, caso necessário
 
-
 ---
 
 # 4. Front-end
@@ -151,9 +141,6 @@ Foco:
 - [ ] Identificar problemas de navegação
 - [ ] Definir quais telas precisam de maior alteração
 - [ ] Definir padrão visual
-
-**Prioridade:** Alta
-
 
 ### FE-002 — Criar padrão visual
 **Responsáveis:** Nícolas, Paulo e Luiz
