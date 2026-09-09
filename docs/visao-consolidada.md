@@ -2,24 +2,25 @@
 
 ## Objetivo
 
-Modernizar o jogo Connect 4 desktop sem perder o funcionamento que já existe.
-O trabalho deve priorizar a análise do projeto, a organização da interface, a
-melhoria da usabilidade, a documentação e a manutenção da lógica atual.
+Evoluir o jogo Connect 4 desktop para permitir partidas multiplayer local 1x1,
+sem perder as regras fundamentais que já existem. O trabalho deve priorizar a
+análise do projeto, o desenvolvimento da lógica necessária, a adaptação da
+interface, a melhoria da usabilidade e a documentação.
 
 ## Estado atual
 
 O projeto é composto por dois módulos principais:
 
 - `connect4module.py`: concentra a representação do tabuleiro, as regras de
-  jogada, a verificação de vitória ou empate, a estratégia do computador e a
-  geração do gráfico do tabuleiro.
+  jogada, a verificação de vitória ou empate, a estratégia atual do computador
+  e a geração do gráfico do tabuleiro.
 - `gamegui.py`: concentra a janela Tkinter, as telas, os botões, o sorteio
   inicial e a integração do gráfico Matplotlib com a interface.
 
-O jogo utiliza um tabuleiro de 6 linhas por 7 colunas. O jogador escolhe uma
-coluna, a peça ocupa a posição livre mais baixa e, em seguida, o computador
-realiza sua jogada. A partida termina quando um dos lados conecta quatro peças
-ou quando não existem mais movimentos.
+O jogo utiliza um tabuleiro de 6 linhas por 7 colunas. Atualmente, um jogador
+escolhe uma coluna, a peça ocupa a posição livre mais baixa e, em seguida, o
+computador realiza sua jogada. A partida termina quando um dos lados conecta
+quatro peças ou quando não existem mais movimentos.
 
 O fluxo atual possui as seguintes telas e estados:
 
@@ -38,7 +39,11 @@ O fluxo atual possui as seguintes telas e estados:
   `connect4module.py`.
 - Manter Tkinter como framework da interface e Matplotlib como representação
   inicial do tabuleiro.
-- Manter a partida individual contra o computador nesta versão.
+- Desenvolver no `connect4module.py` o suporte às partidas entre dois jogadores
+  humanos no mesmo dispositivo.
+- Preservar a matriz de 6 por 7, a queda das peças, a validação de jogadas, a
+  detecção de vitória e o empate.
+- Manter a lógica do computador funcionando enquanto o modo 1x1 é desenvolvido.
 - Não alterar as regras existentes sem registrar e testar o impacto.
 
 ## Escopo de modernização
@@ -56,10 +61,21 @@ O fluxo atual possui as seguintes telas e estados:
 
 ### Fluxo de partida
 
-- Preservar a alternância entre jogada do jogador e jogada do computador.
+- Permitir selecionar o modo de partida multiplayer local 1x1.
+- Alternar corretamente os turnos entre os dois jogadores.
+- Associar cada jogada ao jogador da vez e impedir jogadas fora do turno.
 - Impedir novas jogadas depois do encerramento da partida.
 - Exibir corretamente o resultado final no tabuleiro.
 - Atualizar o gráfico de maneira consistente depois de cada jogada.
+
+### Lógica do jogo
+
+- Separar a operação de realizar uma jogada da decisão específica do
+  computador.
+- Representar os dois jogadores sem depender da lógica de decisão da IA.
+- Retornar para a interface informações suficientes sobre jogada inválida,
+  turno atual, vitória, derrota ou empate.
+- Cobrir a nova lógica com testes antes de integrá-la à interface.
 
 ### Identidade visual
 
@@ -78,21 +94,23 @@ O fluxo atual possui as seguintes telas e estados:
 
 ## Ordem de entrega
 
-1. **Análise:** executar o projeto e registrar funcionalidades, problemas e
-  pontos de refatoração.
-2. **Documentação:** revisar textos e registrar requisitos, instalação,
-  execução e uso.
-3. **Interface:** mapear telas, definir padrão visual, reorganizar a tela
-  principal e melhorar a usabilidade.
-4. **Lógica:** organizar o código existente, tratar erros e testar as regras.
-5. **Integração:** validar a comunicação entre interface e lógica.
+1. **Análise:** registrar o fluxo atual e os pontos que impedem o multiplayer
+   local 1x1.
+2. **Lógica:** desenvolver e testar o suporte a dois jogadores em
+   `connect4module.py`.
+3. **Interface:** adaptar telas, botões, mensagens e fluxo de turnos em
+   `gamegui.py`.
+4. **Integração:** validar a comunicação entre interface e lógica.
+5. **Documentação:** registrar requisitos, instalação, execução e uso.
 
 ## Critérios de aceite
 
-- As funcionalidades atuais são registradas antes das alterações.
+- O modo multiplayer local 1x1 pode ser iniciado pela interface.
+- Os dois jogadores realizam jogadas alternadas no mesmo dispositivo.
+- Uma jogada inválida não altera o tabuleiro nem troca o turno.
+- A vitória e o empate são identificados corretamente para os dois jogadores.
 - As telas seguem um padrão visual consistente.
-- A navegação e as mensagens ficam mais claras para o jogador.
-- A lógica existente continua funcionando após a refatoração.
+- A lógica atual do computador continua funcionando, quando aplicável.
 - A integração entre interface e lógica é validada.
 - A documentação descreve dependências, instalação, execução e uso.
 
@@ -100,8 +118,8 @@ O fluxo atual possui as seguintes telas e estados:
 
 - **Interface:** telas, navegação, componentes visuais, responsividade e
   integração com o tabuleiro.
-- **Lógica:** regras, estratégia do computador, validações, refatoração e
-  testes do núcleo.
+- **Lógica:** regras, suporte ao multiplayer 1x1, estratégia do computador,
+  validações, refatoração e testes do núcleo.
 - **Documentação:** README, instruções de uso, registro das funcionalidades e
   revisão dos textos.
 

@@ -240,15 +240,25 @@ Foco:
 - [ ] Dividir cada funcionalidade em tarefas menores
 
 
-### BE-004 — Implementar funcionalidade prioritária #1
+### BE-004 — Desenvolver multiplayer local 1x1
 **Responsáveis:** Antonio, Mateus e Hugo
 
+**Objetivo:**
+- Adaptar o módulo de regras para permitir que dois jogadores humanos joguem
+	alternadamente no mesmo dispositivo.
+
 **Tarefas:**
-- [ ] Criar estrutura necessária
-- [ ] Implementar lógica
-- [ ] Integrar com o sistema existente
-- [ ] Tratar erros
-- [ ] Testar funcionamento
+- [ ] Definir como os dois jogadores serão representados no tabuleiro
+- [ ] Criar uma operação de jogada independente da decisão do computador
+- [ ] Controlar o jogador da vez
+- [ ] Validar jogadas e impedir jogadas fora do turno
+- [ ] Preservar a verificação de vitória e empate
+- [ ] Criar testes para as regras do modo 1x1
+- [ ] Integrar o novo modo à interface
+
+**Critério de conclusão:**
+- Dois jogadores conseguem concluir uma partida local, com turnos alternados,
+	sem comprometer as regras existentes.
 
 
 ### BE-005 — Implementar funcionalidade prioritária #2
