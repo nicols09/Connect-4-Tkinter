@@ -255,7 +255,7 @@ def plotgraphicalboard(board):
            linestyle='-', linewidth=20, color='yellow')
     a.plot(userwonx, userwony, marker='o', markersize=50,
            linestyle='-', linewidth=20, color='red')
-    a.grid(b=True, which='major', color='black', linestyle='-')
+    a.grid(visible=True, which='major', color='black', linestyle='-')
 
     return f
 
