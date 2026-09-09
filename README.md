@@ -1,35 +1,122 @@
-# Connect 4 Game with Tkinter GUI
+# Connect 4 com interface Tkinter
 
-Simple Connect 4 game made in Python 3 with a Tkinter GUI. This was a personal project to learn how to program user interfaces in Python.
+> Jogo Connect 4 desenvolvido em Python 3 com interface gráfica Tkinter.
 
-The game code itself was written by me in Python2 for my PHYS1201 Programming and Data Analysis module during my Physics Undergraduate degree. I modified it for Python3 and added the GUI after the module was complete.
+O projeto possui uma partida contra o computador, sorteio para definir quem
+começa e tabuleiro desenhado com Matplotlib.
 
-## Usage
-Just run the gamegui.py in whichever way you normally run python files
+## Funcionalidades atuais
 
-## Features
-* Coin toss function to determine who will go first
-* Basic AI so computer will actively try to win and block player's winning moves
-* Game board is displayed using matplotlib plot
+- Sorteio de cara ou coroa para definir quem começa.
+- Jogadas do jogador e do computador em um tabuleiro de 6 por 7.
+- Computador capaz de tentar vencer e bloquear jogadas do jogador.
+- Identificação de vitória, derrota e empate.
+- Exibição do tabuleiro integrado à janela Tkinter.
 
-## Screenshots
+## Requisitos
+
+- Python 3.10 ou superior.
+- Tkinter instalado no sistema.
+- NumPy.
+- Matplotlib.
+
+No Linux baseado em Debian ou Ubuntu, instale o Python, o suporte ao Tkinter,
+o ambiente virtual e o pip com:
+
+```bash
+sudo apt update
+sudo apt install python3 python3-pip python3-venv python3-tk
+```
+
+No Windows ou macOS, instale o Python pelo site oficial e confirme que o
+Tkinter foi incluído na instalação.
+
+## Instalação
+
+Dentro da pasta do projeto, crie e ative um ambiente virtual:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+No Windows PowerShell, use:
+
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+Com o ambiente virtual ativo, instale as dependências:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Para confirmar a instalação:
+
+```bash
+python -c "import tkinter, numpy, matplotlib; print('Dependencias instaladas com sucesso')"
+```
+
+## Execução
+
+Com o ambiente virtual ativo, execute:
+
+```bash
+python gamegui.py
+```
+
+Para sair do ambiente virtual depois de fechar o jogo:
+
+```bash
+deactivate
+```
+
+## Solução de problemas
+
+### `No module named pip`
+
+Instale o pacote do pip pelo gerenciador do sistema. Em Debian ou Ubuntu:
+
+```bash
+sudo apt install python3-pip python3-venv
+```
+
+### `No module named tkinter`
+
+Instale o suporte gráfico do Python:
+
+```bash
+sudo apt install python3-tk
+```
+
+### A janela não abre
+
+O jogo precisa ser executado em um ambiente com interface gráfica. Em uma
+conexão SSH sem encaminhamento gráfico ou em um terminal sem display, o
+Tkinter não conseguirá abrir a janela.
+
+## Sobre o projeto
+
+Este projeto foi desenvolvido originalmente para aprender a criar interfaces
+gráficas em Python. A lógica do jogo foi escrita inicialmente em Python 2 e
+depois adaptada para Python 3, com a interface gráfica adicionada posteriormente.
+
+O projeto também serviu para praticar a criação de aplicações Python com
+múltiplas telas usando Tkinter e a integração de gráficos do Matplotlib em uma
+janela Tkinter.
+
+## Captura de tela
+
 <img width="300" alt="game_screenshot" src="https://user-images.githubusercontent.com/40459599/53034902-2ac24d80-346c-11e9-94d3-85b3db84ad71.png">
 
-## Requirements
-* Python 3
-* Matplotlib and Numpy modules
+## Licença
 
-## Some Notes on What I Learned
-This project was mainly to teach me how to use tkinter and make a GUI in Python. I already had a command line Connect 4 Game that plotted the graphs in Matplotlib so I decided to adapt this code to work in a GUI environment. It probably isn't the best way of making a game interface, but it was fine for my purposes. 
+Este projeto está licenciado nos termos da licença MIT. Consulte
+[LICENSE.txt](LICENSE.txt) para mais informações.
 
-I didn't want to spend too long rewriting my actual game so some of the implementation of it might not be the most elegant or pythonic. Sorry about that!
+## Agradecimentos
 
-I now feel confident making simple Python apps with multiple frame GUIs, and using basic GUI interface tools like buttons. I can also display matplotlib graphs in the Tkinter frame.
-
-## License
-This project is licensed under the terms of the MIT license. Do whatever you want with it!
-
-## Acknowledgements
-
-* A fantastic tutorial series that helped me get started: https://www.youtube.com/playlist?list=PLQVvvaa0QuDclKx-QpC9wntnURXVJqLyk
+- [Tutorial de Tkinter utilizado como referência](https://www.youtube.com/playlist?list=PLQVvvaa0QuDclKx-QpC9wntnURXVJqLyk)
 
