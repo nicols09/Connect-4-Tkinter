@@ -3,30 +3,55 @@ import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import numpy as np
+
+# Aqui a gente diz para o matplotlib usar o "TkAgg" como motor de desenho.
+#
+# Isso é necessário porque o TkAgg é o motor que sabe desenhar dentro de
+# uma janela feita com Tkinter (a biblioteca de interface gráfica do Python).
+# Sem essa linha, o gráfico do tabuleiro não apareceria corretamente na janela.
 matplotlib.use("TkAgg")
 
 
 def makegraphicalboard():
     """
-    Makes an empty board with the required dimensions and labels.
+    Cria um tabuleiro gráfico vazio, já com o tamanho certo, pronto para
+    receber os desenhos das peças depois.
     """
+    # "Figure" é basicamente uma folha de desenho em branco do matplotlib.
+    #
+    # figsize=(7, 7) define que a folha vai ter 7 x 7 polegadas.
+    # dpi=50 define a resolução (quantos pontos por polegada). Esses dois
+    # números juntos controlam o tamanho final, em pixels, da imagem do tabuleiro.
     fig = Figure(figsize=(7, 7), dpi=50)
     return fig
 
 
 def makearrayboard():
     """
-    Makes an array of zeroes on which to start the game
+    Cria a matriz que representa o tabuleiro do jogo, começando tudo vazio.
     """
+    # Um tabuleiro de Connect 4 (Lig 4) tem 6 linhas e 7 colunas.
+    #
+    # np.zeros([6, 7]) cria uma matriz desse tamanho preenchida inteiramente
+    # com zeros. Cada zero representa uma casa vazia do tabuleiro. Conforme
+    # o jogo avança, esses zeros vão sendo substituídos por outros números
+    # que representam as peças do jogador e do computador.
     board = np.zeros([6, 7])
     return board
 
 
 def cointoss(call):
     """
-    Uses button input 0 or 1 and compares with randomly generated 0 or 1
+    Faz o "cara ou coroa" que decide quem começa jogando.
+
+    A função recebe o palpite do jogador (0 ou 1, escolhido clicando em um
+    botão) e compara com um número sorteado aleatoriamente.
     """
+    # Sorteia um número aleatório: ou 0, ou 1.
     coin = np.random.randint(0, 2)
+
+    # Se o número sorteado for igual ao palpite do jogador, o jogador acertou
+    # e a função devolve True. Caso contrário, devolve False.
     if coin == call:
         return True
     else:
@@ -35,52 +60,89 @@ def cointoss(call):
 
 def checkifvalid(board, column):
     """
-    Takes input parameters board and column
-    Checks if move is valid by checking for vacanciesin that column.
-    Returns True if move is valid
+    Verifica se ainda é possível jogar em determinada coluna.
+
+    Recebe o tabuleiro e o número da coluna escolhida. Retorna True se
+    houver pelo menos uma casa vazia nessa coluna, e False se a coluna
+    já estiver completamente cheia.
     """
-    valid = False  # just checks if there are any empty spaces in the column
+    # Começa assumindo que a coluna está cheia (jogada inválida).
+    valid = False
+
+    # Percorre as 6 linhas daquela coluna, de cima a baixo.
+    # Assim que encontra uma casa com valor 0 (vazia), marca como válida.
     for j in range(6):
         if board[j][column] == 0:
             valid = True
+
     return valid
 
 
 def dousermove(board, column):
     """
-    Takes input parameters board and column and plays move
+    Executa a jogada do jogador humano em uma coluna escolhida.
     """
-    placed = False  # ensures counter isn't placed in every vacant space
+    # Essa variável serve para garantir que a peça seja colocada uma única
+    # vez, na primeira casa vazia encontrada, e não em todas as casas vazias.
+    placed = False
+
+    # As peças de Connect 4 "caem" por gravidade, então precisamos procurar
+    # a partir da linha mais baixa (linha 5) até a mais alta (linha 0).
+    # O range(5, -1, -1) faz exatamente isso: 5, 4, 3, 2, 1, 0.
     for i in range(5, -1, -1):
+        # Assim que acha a primeira casa vazia (valor 0) de baixo para cima,
+        # e ainda não colocou nenhuma peça nesta jogada, coloca a peça ali.
         if ((board[i][column] == 0) and (placed == False)):
-            board[i][column] = 1
+            board[i][column] = 1  # O número 1 representa a peça do jogador humano
             placed = True
+
     return board
 
 
 def checkgamestate(board):
     """
-    Checks if computer or the player has won. It does this by:
+    Verifica se alguém já venceu o jogo, olhando o tabuleiro inteiro.
 
-    player won means the sum of the 4 counters is 4
-    computer won means the sum of the 4 counters is 20
+    A ideia usada aqui é simples: cada peça do jogador vale 1 e cada peça
+    do computador vale 5. Então, se somarmos 4 peças em sequência (na
+    horizontal, vertical ou diagonal):
 
-    If either has won, the winning discs are made into much larger numbers
+    - se a soma der 4, é porque as 4 peças são do jogador (1+1+1+1 = 4)
+      então o jogador venceu.
+    - se a soma der 20, é porque as 4 peças são do computador (5+5+5+5 = 20)
+      então o computador venceu.
 
-    The function returns:
-        0 if game is not over
-        1 if player has won
-        2 if computer has won
-        3 if game is a draw
+    Quando alguém vence, a função troca o valor das 4 peças vencedoras por
+    um número bem maior (100 para o jogador, 200 para o computador). Isso é
+    só um "marcador": mais tarde, na hora de desenhar o tabuleiro, o código
+    usa esses números para saber quais peças precisam ser destacadas com
+    uma linha.
+
+    No final, a função devolve um número que representa o estado do jogo:
+        0 -> o jogo ainda está rolando, ninguém venceu ainda
+        1 -> o jogador venceu
+        2 -> o computador venceu
+        3 -> deu empate (o tabuleiro encheu e ninguém venceu)
     """
+    # Começa supondo que o jogo ainda não terminou.
     gamestate = 0
 
-    for j in range(6):  # checks if player has won horizontally
+    # ------------------------------------------------------------------
+    # A partir daqui, checamos se o JOGADOR venceu (soma das peças == 4).
+    # São 4 direções possíveis: horizontal, vertical, diagonal para a
+    # direita e diagonal para a esquerda. A lógica se repete em cada uma,
+    # só muda a direção em que somamos as 4 casas vizinhas.
+    # ------------------------------------------------------------------
+
+    # Checa vitória do jogador na HORIZONTAL.
+    # Para cada linha (j), olha grupos de 4 colunas seguidas (i, i+1, i+2, i+3).
+    for j in range(6):
         for i in range(4):
             if (board[j][i] + board[j][i+1]
                     + board[j][i+2] + board[j][i+3] == 4):
 
-                # this is making the winning counters 100 instead of 1
+                # Encontrou uma vitória! Marca essas 4 casas com o valor 100,
+                # para que depois elas sejam desenhadas de forma destacada.
                 board[j][i] = 100
                 board[j][i+1] = 100
                 board[j][i+2] = 100
@@ -88,7 +150,9 @@ def checkgamestate(board):
 
                 gamestate = 1
 
-    for i in range(7):  # checks if player has won vertically
+    # Checa vitória do jogador na VERTICAL.
+    # Para cada coluna (i), olha grupos de 4 linhas seguidas, de baixo para cima.
+    for i in range(7):
         for j in range(5, 2, -1):
             if (board[j][i] + board[j-1][i]
                     + board[j-2][i] + board[j-3][i] == 4):
@@ -100,7 +164,8 @@ def checkgamestate(board):
 
                 gamestate = 1
 
-    for j in range(5, 2, -1):  # checks if player has won diagonally right
+    # Checa vitória do jogador na DIAGONAL que sobe para a direita.
+    for j in range(5, 2, -1):
         for i in range(4):
             if (board[j][i] + board[j-1][i+1]
                     + board[j-2][i+2] + board[j-3][i+3] == 4):
@@ -112,7 +177,8 @@ def checkgamestate(board):
 
                 gamestate = 1
 
-    for j in range(5, 2, -1):  # checks if player has won diagonally left
+    # Checa vitória do jogador na DIAGONAL que sobe para a esquerda.
+    for j in range(5, 2, -1):
         for i in range(6, 2, -1):
             if (board[j][i] + board[j-1][i-1]
                     + board[j-2][i-2] + board[j-3][i-3] == 4):
@@ -124,7 +190,14 @@ def checkgamestate(board):
 
                 gamestate = 1
 
-    for j in range(6):  # checks if computer has won horizontally
+    # ------------------------------------------------------------------
+    # Agora fazemos exatamente as mesmas 4 checagens acima, mas procurando
+    # a soma 20 em vez de 4, já que 20 só é possível com 4 peças do
+    # computador (5+5+5+5 = 20).
+    # ------------------------------------------------------------------
+
+    # Checa vitória do computador na HORIZONTAL.
+    for j in range(6):
         for i in range(4):
             if (board[j][i] + board[j][i+1]
                     + board[j][i+2] + board[j][i+3] == 20):
@@ -136,7 +209,8 @@ def checkgamestate(board):
 
                 gamestate = 2
 
-    for i in range(7):  # checks if computer has won vertically
+    # Checa vitória do computador na VERTICAL.
+    for i in range(7):
         for j in range(5, 2, -1):
             if (board[j][i] + board[j-1][i]
                     + board[j-2][i] + board[j-3][i] == 20):
@@ -148,7 +222,8 @@ def checkgamestate(board):
 
                 gamestate = 2
 
-    for j in range(5, 2, -1):  # checks if computer has won diagonally right
+    # Checa vitória do computador na DIAGONAL que sobe para a direita.
+    for j in range(5, 2, -1):
         for i in range(4):
             if (board[j][i] + board[j-1][i+1]
                     + board[j-2][i+2] + board[j-3][i+3] == 20):
@@ -160,7 +235,8 @@ def checkgamestate(board):
 
                 gamestate = 2
 
-    for j in range(5, 2, -1):  # checks if player has won diagonally left
+    # Checa vitória do computador na DIAGONAL que sobe para a esquerda.
+    for j in range(5, 2, -1):
         for i in range(6, 2, -1):
             if (board[j][i] + board[j-1][i-1]
                     + board[j-2][i-2] + board[j-3][i-3] == 20):
@@ -172,12 +248,21 @@ def checkgamestate(board):
 
                 gamestate = 2
 
-    # this is checking if there are any possible moves available to be played
+    # ------------------------------------------------------------------
+    # Por fim, checamos se deu empate.
+    #
+    # Um empate só acontece quando o tabuleiro está completamente cheio
+    # e ninguém venceu. Para saber se ainda tem espaço livre, basta olhar
+    # a linha do topo (linha 0): se qualquer casa dessa linha ainda tiver
+    # valor 0, quer dizer que ainda dá pra jogar em alguma coluna.
+    # ------------------------------------------------------------------
     possiblemoves = False
     for i in range(0, 7, 1):
         if (board[0][i] == 0):
             possiblemoves = True
-    # if there are no possible moves and noone has won, the game is a draw
+
+    # Se não sobrou nenhuma jogada possível E ninguém venceu até agora,
+    # então o resultado do jogo é empate.
     if ((possiblemoves == False) and (gamestate == 0)):
         gamestate = 3
 
@@ -186,17 +271,22 @@ def checkgamestate(board):
 
 def plotgraphicalboard(board):
     """
-    Takes input parameters array board and splits the array into:
-    2 lists of x and y coordinates where the user has a counter
-    2 lists of x and y coordinates where the computer has a counter
-    2 lists of x and y coordinates of the winning counter for the user
-    2 lists of x and y coordinates of the winning counters for the computer
+    Desenha o tabuleiro na tela, com base nos números guardados na matriz.
 
-    Plots user and computer counters
+    Primeiro a função separa as peças em grupos, de acordo com o valor
+    de cada casa da matriz:
 
-    A line is drawn through the winning discs
+    - peças normais do jogador (valor 1)
+    - peças normais do computador (valor 5)
+    - peças vencedoras do jogador (valor 100)
+    - peças vencedoras do computador (valor 200)
+
+    Depois, desenha cada grupo de peças no gráfico, com cores diferentes,
+    e liga as peças vencedoras com uma linha grossa.
     """
 
+    # Cada uma dessas listas vai guardar as coordenadas (x = coluna, y = linha)
+    # de um tipo de peça específico.
     userx = []
     usery = []
     userwonx = []
@@ -206,6 +296,9 @@ def plotgraphicalboard(board):
     computerwonx = []
     computerwony = []
 
+    # Percorre todas as casas do tabuleiro (todas as linhas e colunas) e,
+    # dependendo do número guardado em cada casa, guarda a posição (i, j)
+    # na lista correspondente.
     for j in range(6):
         for i in range(7):
             if board[j][i] == 1:
@@ -224,37 +317,71 @@ def plotgraphicalboard(board):
                 computerwonx.append(i)
                 computerwony.append(j)
 
-    # have to make it into an array so its easier to do calculations on it
+    # Transforma as listas em arrays do numpy. Isso é feito porque arrays
+    # permitem fazer contas (como somar ou multiplicar) em todos os
+    # elementos de uma vez, sem precisar de um laço "for".
     userx = np.array(userx) + 1
     usery = np.array(usery) - 1
-    # corrects y coordinates since graph counts y up but arrays count y down
+
+    # No gráfico, o eixo Y cresce de baixo para cima. Mas na nossa matriz,
+    # o índice das linhas cresce de cima para baixo (a linha 0 é a de cima).
+    # Essa conta (multiplicar por -1 e somar 5) serve justamente para
+    # "inverter" essa contagem, colocando a peça na altura certa do desenho.
     usery = ((usery * -1) + 5)
+
     userwonx = np.array(userwonx) + 1
     userwony = np.array(userwony) - 1
     userwony = ((userwony * -1) + 5)
 
-    # add 1 so the counter is in the right place on the diagram
+    # Faz o mesmo ajuste de posição para as peças do computador.
+    # Somamos 1 no x para a peça ficar centralizada na coluna certa do desenho.
     computerx = np.array(computerx) + 1
-    # subtract 1 so the counter is in the right place on the diagram
+
+    # Subtraímos 1 no y, e depois invertemos, pelo mesmo motivo explicado acima.
     computery = np.array(computery) - 1
     computery = ((computery * -1) + 5)
+
     computerwonx = np.array(computerwonx) + 1
     computerwony = np.array(computerwony) - 1
     computerwony = ((computerwony * -1) + 5)
 
+    # Cria a folha de desenho (figura) e um único gráfico (subplot) dentro dela.
     f = makegraphicalboard()
     a = f.add_subplot(111)
+
+    # Ajusta as margens da figura para que o tabuleiro ocupe quase toda a área,
+    # deixando bem pouca borda em branco ao redor.
     f.subplots_adjust(left=0.01, bottom=0.01, right=0.99, top=0.99)
+
+    # Define os limites dos eixos: x vai de 0 a 8, y vai de 0 a 7.
     a.axis([0, 8, 0, 7])
     a.plot()
+
+    # Desenha as peças normais do jogador como bolinhas vermelhas...
     a.plot(userx, usery, marker='o', markersize=50,
            linestyle=' ', color='red')
+
+    # ...e as peças normais do computador como bolinhas amarelas.
     a.plot(computerx, computery, marker='o',
            markersize=50, linestyle=' ', color='yellow')
+
+    # Desenha as peças vencedoras do computador ligadas por uma linha grossa,
+    # para destacar visualmente qual foi a sequência que ganhou o jogo.
     a.plot(computerwonx, computerwony, marker='o', markersize=50,
            linestyle='-', linewidth=20, color='yellow')
+
+    # Faz o mesmo destaque para as peças vencedoras do jogador.
     a.plot(userwonx, userwony, marker='o', markersize=50,
            linestyle='-', linewidth=20, color='red')
+<<<<<<< HEAD
+
+    # Desenha as linhas de grade preta, para ficar parecido com um tabuleiro de verdade.
+    #
+    # Observação: em versões antigas do matplotlib esse parâmetro se chamava
+    # "b=True". Em versões mais novas (a partir da 3.5), esse nome foi
+    # removido e substituído por "visible=True", por isso usamos o nome novo aqui.
+=======
+>>>>>>> 001939829ad2e8fcce1909a01922410a2b5d835b
     a.grid(visible=True, which='major', color='black', linestyle='-')
 
     return f
@@ -262,31 +389,49 @@ def plotgraphicalboard(board):
 
 def decidecomputermove(board):
     """
-    Takes input parameter board and decides computer move.
-    The computer will actively block near wins for players.
-    It will also actively complete its near wins.
+    Decide em qual coluna o computador vai jogar.
 
-    When blocking or completing near wins, the computer will check the disc
-    underneath the empty slot in the near win configuration. It will only block
-    or complete if this slot is full. The prevents the computer from trying to
-    block a slot but playing into the one underneath it.
+    A estratégia do computador segue esta ordem de prioridade (a última
+    regra que "bater" é a que vale, então as regras mais importantes
+    ficam no final da função):
 
-    The computer will also play the middle if possible or the one next to the
-    middle if this is not possible. This is a popular Connect 4 strategy
+    1. Se possível, joga bem no meio do tabuleiro (essa é uma estratégia
+       clássica do Connect 4, porque a coluna do meio participa de mais
+       combinações de vitória).
+    2. Bloqueia o jogador quando ele está a uma peça de vencer.
+    3. Completa sua própria sequência quando está a uma peça de vencer.
+
+    Um detalhe importante: antes de bloquear ou completar uma jogada, o
+    computador confere se a casa logo ABAIXO da casa vazia já está ocupada.
+    Ele só joga ali se a casa de baixo estiver cheia. Isso evita um erro
+    bobo: tentar bloquear uma casa mais alta, mas acabar colocando a peça
+    na casa vazia logo abaixo dela (porque as peças caem por gravidade).
     """
+    # Começa com uma coluna totalmente aleatória. As regras abaixo vão
+    # sobrescrever esse valor sempre que encontrarem uma jogada melhor.
     column = np.random.randint(0, 7)
-    if board[5][3] == 0:  # plays in centre if possible
+
+    if board[5][3] == 0:  # se a coluna do meio (coluna 3) ainda tem espaço, joga nela
         column = 3
 
     elif board[5][2] == 0:
-        column = 2  # stops player from going for one particular type of win
+        column = 2  # evita que o jogador consiga montar um tipo específico de vitória
 
-    for j in range(6):  # if player will win horizontally, plays in empty spot
+    # ------------------------------------------------------------------
+    # A partir daqui, o computador procura por sequências de 3 peças do
+    # jogador (soma == 3, ou seja, 1+1+1) com uma casa vazia ao lado.
+    # Encontrando isso, ele deve bloquear jogando nessa casa vazia.
+    # ------------------------------------------------------------------
+
+    # Bloqueia o jogador na HORIZONTAL.
+    for j in range(6):
         for i in range(4):
             if (board[j][i] + board[j][i+1]
                     + board[j][i+2] + board[j][i+3] == 3):
 
-                if j == 5:  # if on the lowest row, ignores check underneath
+                if j == 5:
+                    # Na linha mais baixa do tabuleiro não existe "casa de baixo"
+                    # para checar, então o bloqueio pode ser feito direto.
                     if (board[j][i] == 0):
                         column = i
 
@@ -300,6 +445,8 @@ def decidecomputermove(board):
                         column = i + 3
 
                 else:
+                    # Aqui sim conferimos a casa de baixo: só bloqueia se
+                    # a casa vazia tiver uma peça logo abaixo dela.
                     if ((board[j][i] == 0) and (board[j+1][i] != 0)):
                         column = i
 
@@ -312,13 +459,17 @@ def decidecomputermove(board):
                     if ((board[j][i+3] == 0) and (board[j+1][i+3] != 0)):
                         column = i + 3
 
-    for i in range(7):  # if player will win vertically, plays in empty spot
+    # Bloqueia o jogador na VERTICAL.
+    # Aqui não é preciso checar a casa de baixo, porque numa coluna a
+    # única casa vazia possível é sempre a mais alta ocupada por cima
+    # das peças já empilhadas.
+    for i in range(7):
         for j in range(5, 2, -1):
             if (board[j][i] + board[j-1][i]
                     + board[j-2][i] + board[j-3][i] == 3):
                 column = i
 
-    # if player will win diagonally right, plays in empty spot
+    # Bloqueia o jogador na DIAGONAL que sobe para a direita.
     for j in range(5, 2, -1):
         for i in range(4):
             if (board[j][i] + board[j-1][i+1]
@@ -350,7 +501,7 @@ def decidecomputermove(board):
                     if ((board[j-3][i+3] == 0) and (board[j-2][i+3] != 0)):
                         column = i + 3
 
-    # if player will win diagonally left, plays in empty spot
+    # Bloqueia o jogador na DIAGONAL que sobe para a esquerda.
     for j in range(5, 2, -1):
         for i in range(6, 2, -1):
             if (board[j][i] + board[j-1][i-1]
@@ -382,7 +533,19 @@ def decidecomputermove(board):
                     if ((board[j-3][i-3] == 0) and (board[j-2][i-3] != 0)):
                         column = i - 3
 
-    for j in range(6):  # if comp will win horizontally, plays in empty spot
+    # ------------------------------------------------------------------
+    # Agora repetimos exatamente a mesma ideia acima, mas procurando por
+    # sequências de 3 peças DO COMPUTADOR (soma == 15, ou seja, 5+5+5).
+    # Encontrando isso, o computador deve completar a jogada e vencer.
+    #
+    # Como isso é verificado DEPOIS dos bloqueios acima, se houver as duas
+    # situações ao mesmo tempo (o computador pode vencer E o jogador
+    # também pode vencer), o computador vai preferir vencer o jogo em vez
+    # de bloquear, porque essa checagem sobrescreve a coluna escolhida antes.
+    # ------------------------------------------------------------------
+
+    # Completa a vitória do computador na HORIZONTAL.
+    for j in range(6):
         for i in range(4):
             if (board[j][i] + board[j][i+1]
                     + board[j][i+2] + board[j][i+3] == 15):
@@ -413,14 +576,15 @@ def decidecomputermove(board):
                     if ((board[j][i+3] == 0) and (board[j+1][i+3] != 0)):
                         column = i + 3
 
-    for i in range(7):  # if comp will win vertically, plays in empty spot
+    # Completa a vitória do computador na VERTICAL.
+    for i in range(7):
         for j in range(5, 2, -1):
             if (board[j][i] + board[j-1][i]
                     + board[j-2][i] + board[j-3][i] == 15):
 
                 column = i
 
-    # if comp will win diagonally right, plays in empty spot
+    # Completa a vitória do computador na DIAGONAL que sobe para a direita.
     for j in range(5, 2, -1):
         for i in range(4):
             if (board[j][i] + board[j-1][i+1]
@@ -452,7 +616,7 @@ def decidecomputermove(board):
                     if ((board[j-3][i+3] == 0) and (board[j-2][i+3] != 0)):
                         column = i + 3
 
-    # if computer will win diagonally left, plays in empty spot
+    # Completa a vitória do computador na DIAGONAL que sobe para a esquerda.
     for j in range(5, 2, -1):
         for i in range(6, 2, -1):
             if (board[j][i] + board[j-1][i-1]
@@ -489,13 +653,19 @@ def decidecomputermove(board):
 
 def docomputermove(board, column):
     """
-    Takes input parameters board and column
-    This is almost identical to the dousermove function.
-    Places the coin in the lowest unoccupied slot on the board.
+    Executa a jogada do computador em uma coluna escolhida.
+
+    Essa função funciona de forma quase idêntica à dousermove: ela também
+    procura a primeira casa vazia de baixo para cima e coloca a peça ali.
+    A única diferença é o número usado para representar a peça.
     """
     placed = False
+
+    # Mesma lógica de "gravidade" usada na jogada do jogador: procura de
+    # baixo para cima até achar a primeira casa vazia.
     for i in range(5, -1, -1):
         if ((board[i][column] == 0) and (placed == False)):
-            board[i][column] = 5
+            board[i][column] = 5  # O número 5 representa a peça do computador
             placed = True
+
     return board
