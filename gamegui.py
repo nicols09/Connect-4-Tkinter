@@ -6,302 +6,544 @@ import tkinter as tk
 from tkinter import ttk
 import connect4module as c4
 
-# Define o motor de desenho do matplotlib como "TkAgg", que é o que sabe
-# desenhar gráficos dentro de uma janela feita com Tkinter.
 matplotlib.use("TkAgg")
 
-# Aqui a gente define 3 tamanhos de fonte que serão reaproveitados em
-# várias telas do jogo, para manter um visual parecido em todo o app.
-# "large" é usado nos títulos, "med" nos textos normais e "small" em
-# espaços que servem só para dar um respiro visual entre elementos.
-large = ("ComicSansMS", 40)
-med = ("ComicSansMS", 30)
-small = ("ComicSansMS", 20)
+# ---------------------------------------------------------------------------
+# Paleta de cores e fontes do jogo
+# ---------------------------------------------------------------------------
+
+BG_COLOR = "#F4F1EA"        # fundo bege claro
+PRIMARY_COLOR = "#E63946"   # vermelho (cor do jogador, usada para os botões de ação)
+PRIMARY_HOVER = "#C1121F"   # vermelho mais escuro, para quando o botão é clicado
+SECONDARY_COLOR = "#457B9D"  # azul (usado em botões secundários/navegação)
+SECONDARY_HOVER = "#33607F"
+TEXT_COLOR = "#1D3557"      # azul bem escuro, usado no texto principal
+MUTED_TEXT_COLOR = "#6C7A89"  # cinza-azulado, para textos secundários
+
+# Fonte de destaque (títulos)
+# Fonte de corpo (textos/instruções)
+TITLE_FONT = ("Arial", 34, "bold")
+SUBTITLE_FONT = ("Arial", 16)
+STATEMENT_FONT = ("Arial", 22, "bold")
+BODY_FONT = ("Segoe UI", 13)
+BUTTON_FONT = ("Segoe UI", 13, "bold")
+COLUMN_BUTTON_FONT = ("Segoe UI", 12, "bold")
+
+
+def setup_styles(root):
+    """
+    Configura o visual (cores, fontes, espaçamento) de todos os widgets
+    ttk usados no jogo. É chamada uma única vez, quando o app abre.
+
+    Usamos o tema "clam" como base porque, diferente do tema padrão do
+    Windows, ele permite customizar a cor de fundo dos botões — no tema
+    padrão, a cor de fundo do botão é sempre controlada pelo sistema
+    operacional e não pode ser alterada por código.
+    """
+    style = ttk.Style(root)
+    style.theme_use("clam")
+
+    style.configure("TFrame", background=BG_COLOR)
+
+    style.configure(
+        "TLabel", background=BG_COLOR, foreground=TEXT_COLOR, font=BODY_FONT
+    )
+    style.configure(
+        "Title.TLabel",
+        background=BG_COLOR,
+        foreground=PRIMARY_COLOR,
+        font=TITLE_FONT,
+    )
+    style.configure(
+        "Subtitle.TLabel",
+        background=BG_COLOR,
+        foreground=MUTED_TEXT_COLOR,
+        font=SUBTITLE_FONT,
+    )
+    style.configure(
+        "Statement.TLabel",
+        background=BG_COLOR,
+        foreground=TEXT_COLOR,
+        font=STATEMENT_FONT,
+    )
+    style.configure(
+        "Body.TLabel",
+        background=BG_COLOR,
+        foreground=TEXT_COLOR,
+        font=BODY_FONT,
+    )
+
+    # Botão principal (ação mais importante da tela, ex: "Jogar")
+    style.configure(
+        "Primary.TButton",
+        background=PRIMARY_COLOR,
+        foreground="white",
+        font=BUTTON_FONT,
+        padding=(18, 10),
+        borderwidth=0,
+    )
+    style.map(
+        "Primary.TButton",
+        background=[("active", PRIMARY_HOVER), ("pressed", PRIMARY_HOVER)],
+    )
+
+    # Botão secundário (ações de navegação, ex: "Voltar")
+    style.configure(
+        "Secondary.TButton",
+        background=SECONDARY_COLOR,
+        foreground="white",
+        font=BUTTON_FONT,
+        padding=(16, 9),
+        borderwidth=0,
+    )
+    style.map(
+        "Secondary.TButton",
+        background=[("active", SECONDARY_HOVER), ("pressed", SECONDARY_HOVER)],
+    )
+
+    # Botões de coluna (a-g), embaixo do tabuleiro
+    style.configure(
+        "Column.TButton",
+        font=COLUMN_BUTTON_FONT,
+        padding=(6, 6),
+    )
 
 
 class Connect4App(tk.Tk):
     """
-    Classe controladora. É ela quem comanda o aplicativo inteiro.
-
-    A ideia geral aqui é a seguinte: em vez de abrir uma janela nova
-    toda vez que o jogo muda de tela, criamos todas as telas (frames)
-    de uma vez só, empilhadas umas sobre as outras, dentro da mesma
-    janela. Depois, só "levantamos" a tela que queremos mostrar para
-    o usuário, escondendo as outras por trás.
+    Controller class, will control whole application
     """
 
     def __init__(self):
 
-        # Cria a janela principal do aplicativo, que vai conter todas as telas.
+        # create window that will display all the frames
         tk.Tk.__init__(self)
-        tk.Tk.wm_title(self, "Connect 4 Game")
+        tk.Tk.wm_title(self, "Connect 4")
+        self.configure(background=BG_COLOR)
+        setup_styles(self)
 
-        # "container" é uma caixa que vai servir de base para empilhar
-        # todas as telas do jogo, uma em cima da outra.
-        container = tk.Frame(self)
+        container = tk.Frame(self, background=BG_COLOR)
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
-        # Esse dicionário vai guardar cada tela do jogo, para que a gente
-        # consiga encontrá-la rapidamente pelo nome da classe depois.
+        # dictionary with all frames in the app listed
         self.frames = {}
 
-        # Aqui a gente cria cada uma das 4 telas do jogo (StartPage,
-        # TossPage, BoardPageLose e BoardPageWin), uma por uma, e vai
-        # empilhando todas dentro do container, na mesma posição
-        # (linha 0, coluna 0). Como todas ficam exatamente no mesmo
-        # lugar, dá pra "trocar de tela" simplesmente trazendo a tela
-        # certa para frente das outras.
-        for f in (StartPage, TossPage, BoardPageLose, BoardPageWin):
+        # creates each page and adds it to container
+        for f in (StartPage, RulesPage, PlayMenuPage, LocalPage,
+                  TossPage, BoardPageLose, BoardPageWin):
             frame = f(container, self)
-            self.frames[f] = frame   # guarda a tela no dicionário, usando a classe como chave
+            self.frames[f] = frame   # adds pages to dictionary
             frame.grid(row=0, column=0, sticky="nsew")
-            self.show_frame(StartPage)
 
+        self.show_frame(StartPage)
+
+        # Centraliza a janela na tela do usuário, sem travar o tamanho dela.
+        #
+        # Importante: aqui passamos só a posição ("+x+y") para o geometry(),
+        # e NÃO um tamanho fixo ("LARGURAxALTURA+x+y"). Se passássemos um
+        # tamanho fixo, a janela pararia de se redimensionar sozinha quando
+        # o conteúdo muda — por exemplo, quando os botões "Jogar de Novo" e
+        # "Voltar ao Menu" aparecem ao fim de uma partida. Como aqui só a
+        # posição é definida, a janela continua se ajustando normalmente,
+        # só que já nasce centralizada na tela.
+        self.update_idletasks()
+        window_width = self.winfo_reqwidth()
+        window_height = self.winfo_reqheight()
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        self.geometry(f"+{x}+{y}")
+
+    # raises necessary page to top to see
     def show_frame(self, page):
-        """
-        Traz a tela pedida para a frente, escondendo as outras atrás dela.
-        """
-        # Busca a tela certa dentro do dicionário e a levanta para o topo,
-        # tornando-a visível para o usuário.
+
         frame = self.frames[page]
+
+        # Algumas telas (TossPage, BoardPageWin, BoardPageLose) guardam o
+        # estado de uma partida/sorteio anterior. Sem isso, ao voltar pra
+        # elas depois de já ter jogado uma vez, ficariam "travadas" no
+        # resultado antigo. Se a tela tiver um método on_show, ele é
+        # chamado automaticamente aqui, toda vez que o usuário navega até
+        # ela, garantindo que sempre comece do zero.
+        if hasattr(frame, "on_show"):
+            frame.on_show()
+
         frame.tkraise()
 
 
 class StartPage(tk.Frame):
     """
-    Tela inicial do jogo.
-
-    É a primeira coisa que o usuário vê: uma mensagem de boas-vindas e
-    um botão para começar a partida.
+    Tela inicial: mensagem de boas-vindas e o menu principal, com as opções
+    de ver as regras do jogo ou começar a jogar.
     """
 
     def __init__(self, window, controller):
 
-        ttk.Frame.__init__(self, window)
+        ttk.Frame.__init__(self, window, style="TFrame")
         self.grid_columnconfigure(1, weight=1)
 
-        # Título de boas-vindas, exibido bem grande no topo da tela.
-        title = ttk.Label(self, text="Bem-vindo ao Connect 4!", font=large)
-        title.grid(row=1, column=1)
+        title = ttk.Label(
+            self, text="Bem-vindo ao Connect4", style="Title.TLabel"
+        )
+        title.grid(row=1, column=1, pady=(60, 6))
 
-        # Botão "Begin": quando clicado, chama show_frame para mostrar a
-        # próxima tela (TossPage), onde o cara-ou-coroa vai acontecer.
-        button_continue = ttk.Button(self, text="Entrar", command=lambda:
-                                     controller.show_frame(TossPage))
-        button_continue.grid(row=2, column=1)
+        subtitle = ttk.Label(
+            self,
+            text="Conecte 4 peças em linha e vença o adversário!",
+            style="Subtitle.TLabel",
+        )
+        subtitle.grid(row=2, column=1, pady=(0, 40))
+
+        button_rules = ttk.Button(
+            self,
+            text="Como Jogar",
+            style="Secondary.TButton",
+            command=lambda: controller.show_frame(RulesPage),
+        )
+        button_rules.grid(row=3, column=1, pady=8, ipadx=10)
+
+        button_play = ttk.Button(
+            self,
+            text="Jogar",
+            style="Primary.TButton",
+            command=lambda: controller.show_frame(PlayMenuPage),
+        )
+        button_play.grid(row=4, column=1, pady=8, ipadx=10)
+
+
+class RulesPage(tk.Frame):
+    """
+    Tela de regras: explica em poucas palavras como o jogo funciona,
+    para quem estiver jogando pela primeira vez.
+    """
+
+    def __init__(self, window, controller):
+
+        ttk.Frame.__init__(self, window, style="TFrame")
+        self.grid_columnconfigure(1, weight=1)
+
+        title = ttk.Label(self, text="Como Jogar", style="Title.TLabel")
+        title.configure(font=("Arial", 28, "bold"))
+        title.grid(row=1, column=1, pady=(40, 20))
+
+        rules_text = (
+            "O objetivo é ser o primeiro a conectar 4 peças da mesma cor "
+            "em uma linha, seja na horizontal, na vertical ou na diagonal.\n\n"
+            "1. Clique em uma das letras (a-g) embaixo do tabuleiro para "
+            "escolher a coluna onde quer soltar sua peça.\n\n"
+            "2. A peça cai até o espaço vazio mais baixo daquela coluna.\n\n"
+            "3. Você e o adversário/máquina se revezam, jogando uma peça por vez.\n\n"
+            "4. Vence quem conseguir alinhar 4 peças da mesma cor primeiro.\n\n"
+            "5. Se o tabuleiro encher e ninguém tiver vencido, é empate."
+        )
+
+        rules_label = ttk.Label(
+            self,
+            text=rules_text,
+            style="Body.TLabel",
+            justify="left",
+            wraplength=520,
+        )
+        rules_label.grid(row=2, column=1, padx=40, pady=(0, 30))
+
+        button_back = ttk.Button(
+            self,
+            text="Voltar",
+            style="Secondary.TButton",
+            command=lambda: controller.show_frame(StartPage),
+        )
+        button_back.grid(row=3, column=1, pady=10, ipadx=10)
+
+
+class PlayMenuPage(tk.Frame):
+    """
+    Tela de escolha do modo de jogo: contra a máquina (já funcional) ou
+    1 vs 1 local (ainda não implementado, só o botão de acesso).
+    """
+
+    def __init__(self, window, controller):
+
+        ttk.Frame.__init__(self, window, style="TFrame")
+        self.grid_columnconfigure(1, weight=1)
+
+        title = ttk.Label(
+            self, text="Escolha o Modo de Jogo", style="Title.TLabel"
+        )
+        title.configure(font=("Arial", 28, "bold"))
+        title.grid(row=1, column=1, pady=(60, 40))
+
+        button_machine = ttk.Button(
+            self,
+            text="Jogar contra a Máquina",
+            style="Primary.TButton",
+            command=lambda: controller.show_frame(TossPage),
+        )
+        button_machine.grid(row=2, column=1, pady=10, ipadx=10)
+
+        button_local = ttk.Button(
+            self,
+            text="1 vs 1",
+            style="Secondary.TButton",
+            command=lambda: controller.show_frame(LocalPage),
+        )
+        button_local.grid(row=3, column=1, pady=10, ipadx=10)
+
+        button_back = ttk.Button(
+            self,
+            text="Voltar",
+            style="Secondary.TButton",
+            command=lambda: controller.show_frame(StartPage),
+        )
+        button_back.grid(row=4, column=1, pady=(40, 10))
+
+
+class LocalPage(tk.Frame):
+    """
+    Tela reservada para o modo 1 vs 1 local. A funcionalidade ainda não foi
+    desenvolvida — por enquanto só existe a navegação até aqui, avisando
+    que o modo está a caminho.
+    """
+
+    def __init__(self, window, controller):
+
+        ttk.Frame.__init__(self, window, style="TFrame")
+        self.grid_columnconfigure(1, weight=1)
+
+        title = ttk.Label(self, text="1 vs 1 Local", style="Title.TLabel")
+        title.configure(font=("Georgia", 28, "bold"))
+        title.grid(row=1, column=1, pady=(80, 20))
+
+        message = ttk.Label(
+            self,
+            text="Em breve! Este modo de jogo ainda está em desenvolvimento.",
+            style="Subtitle.TLabel",
+            wraplength=420,
+            justify="center",
+        )
+        message.grid(row=2, column=1, pady=(0, 40))
+
+        button_back = ttk.Button(
+            self,
+            text="Voltar",
+            style="Secondary.TButton",
+            command=lambda: controller.show_frame(PlayMenuPage),
+        )
+        button_back.grid(row=3, column=1, pady=10, ipadx=10)
 
 
 class TossPage(tk.Frame):
     """
-    Tela do cara-ou-coroa.
-
-    Nesta tela, o jogador escolhe "cara" ou "coroa" para decidir quem
-    vai jogar primeiro: ele ou o computador.
+    Toss Page, contains coin toss function
     """
 
     def __init__(self, window, controller):
-        ttk.Frame.__init__(self, window)
+        ttk.Frame.__init__(self, window, style="TFrame")
+        self.controller = controller
         self.grid_columnconfigure(1, weight=1)
 
-        title = ttk.Label(self, text="Faça sua escolha", font=large)
-        title.grid(row=1, column=1)
+        title = ttk.Label(self, text="Cara ou Coroa", style="Title.TLabel")
+        title.configure(font=("Arial", 28, "bold"))
+        title.grid(row=1, column=1, pady=(50, 10))
 
-        toss = ttk.Label(self, text="Escolha Cara ou Coroa", font=med)
-        toss.grid(row=2, column=1)
+        toss = ttk.Label(
+            self, text="Escolha cara ou coroa", style="Subtitle.TLabel"
+        )
+        toss.grid(row=2, column=1, pady=(0, 20))
 
-        # Cria os botões de "Heads" (cara) e "Tails" (coroa).
-        #
-        # Repare que cada botão, além de rodar a função heads/tails, também
-        # já recebe de presente as referências dos labels e dos outros
-        # botões da tela (outcome, nextstep, button_win, button_lose).
-        # Isso é feito porque as funções heads() e tails() precisam mudar
-        # o texto desses elementos depois que o usuário decide sua jogada.
-        button_heads = ttk.Button(self, text="Cara", command=lambda:
-                                  self.heads(outcome,
-                                             nextstep,
-                                             button_heads,
-                                             button_tails,
-                                             button_win,
-                                             button_lose), width=6)
-        button_tails = ttk.Button(self, text="Coroa", command=lambda:
-                                  self.tails(outcome,
-                                             nextstep,
-                                             button_heads,
-                                             button_tails,
-                                             button_win,
-                                             button_lose), width=6)
-        button_heads.grid(row=3, column=1)
-        button_tails.grid(row=4, column=1)
+        # "outcome", "nextstep" e os botões agora são guardados como
+        # atributos (self.xxx) em vez de variáveis locais do __init__.
+        # Isso é necessário para que on_show() consiga encontrá-los e
+        # resetá-los sempre que o usuário voltar a esta tela, mesmo esse
+        # __init__ só rodando uma única vez durante toda a vida do app.
+        self.button_heads = ttk.Button(
+            self, text="Cara", style="Primary.TButton",
+            command=self.heads, width=8,
+        )
+        self.button_tails = ttk.Button(
+            self, text="Coroa", style="Secondary.TButton",
+            command=self.tails, width=8,
+        )
+        self.button_heads.grid(row=3, column=1, pady=6)
+        self.button_tails.grid(row=4, column=1, pady=6)
 
-        # Esses dois textos (labels) começam vazios. Eles só vão ganhar
-        # conteúdo depois que o usuário clicar em "Heads" ou "Tails",
-        # mostrando se ele ganhou ou perdeu o sorteio, e quem vai começar.
-        outcome = ttk.Label(self, text="", font=med)
-        outcome.grid(row=6, column=1)
-        nextstep = ttk.Label(self, text="", font=med)
-        nextstep.grid(row=7, column=1)
+        # empty labels that will be updated with outcome after user selects
+        self.outcome = ttk.Label(self, text="", style="Statement.TLabel")
+        self.outcome.grid(row=6, column=1, pady=(20, 0))
+        self.nextstep = ttk.Label(self, text="", style="Body.TLabel")
+        self.nextstep.grid(row=7, column=1)
 
-        # Esses botões de "Continue" são criados aqui, mas ainda não são
-        # posicionados na tela (por isso o usuário não os vê ainda).
-        # Eles só vão aparecer (usando .grid) depois que o resultado do
-        # sorteio for conhecido, dentro das funções heads() e tails().
-        button_win = ttk.Button(self, text="Continue", command=lambda:
-                                controller.show_frame(BoardPageWin))
-        button_lose = ttk.Button(self, text="Continue", command=lambda:
-                                 controller.show_frame(BoardPageLose))
+        # Hidden buttons that becomes visible after user makes selection
+        self.button_win = ttk.Button(
+            self, text="Continuar", style="Primary.TButton",
+            command=lambda: controller.show_frame(BoardPageWin),
+        )
+        self.button_lose = ttk.Button(
+            self, text="Continuar", style="Primary.TButton",
+            command=lambda: controller.show_frame(BoardPageLose),
+        )
 
-    def heads(self, outcome, nextstep, button_heads, button_tails, button_win, button_lose):
+        self.reset()
+
+    def on_show(self):
+        """Chamado automaticamente pelo show_frame() sempre que o
+        usuário navega até esta tela — garante que o sorteio comece
+        do zero."""
+        self.reset()
+
+    def reset(self):
+        """Deixa a tela pronta para um novo sorteio: textos vazios, os
+        botões "Cara"/"Coroa" reativados, e o botão "Continuar"
+        escondido até que o usuário escolha um lado da moeda de novo."""
+        self.outcome.configure(text="")
+        self.nextstep.configure(text="")
+        self.button_heads.configure(text="Cara", command=self.heads)
+        self.button_tails.configure(text="Coroa", command=self.tails)
+        self.button_win.grid_remove()
+        self.button_lose.grid_remove()
+
+    def heads(self):
         """
-        Executada quando o jogador escolhe "Heads" (cara).
-
-        Roda o sorteio (cointoss) do módulo connect4module com call = 1.
-        Desativa os botões de escolha, para o usuário não poder escolher
-        de novo. Atualiza os textos com o resultado do sorteio. E, por
-        fim, mostra o botão de "Continue" que leva para a tela certa,
-        dependendo se o jogador ganhou ou perdeu o sorteio.
+        Runs cointoss function in connect4module with chosen call = 1
+        Updates buttons to have no function, so user cannot reselect
+        Updates labels to show outcome of coin toss
+        Makes relevant continue button visible
         """
-        # call = 1 representa a escolha "cara" dentro da função cointoss.
         call = 1
         result = c4.cointoss(call)
-
-        # Desliga os dois botões, trocando seu comando por "donothing"
-        # (uma função que não faz nada). Isso impede que o jogador clique
-        # de novo depois de já ter escolhido.
-        button_tails.configure(text="", command=donothing)
-        button_heads.configure(command=donothing)
-
+        self.button_tails.configure(text="", command=donothing)
+        self.button_heads.configure(command=donothing)
         if result == True:
-            # O jogador acertou o sorteio, então ele começa jogando.
-            outcome.configure(text="Você venceu!")
-            nextstep.configure(text="Você começará jogando")
-            # Mostra o botão que leva para a tela em que o jogador começa (BoardPageWin).
-            button_win.grid(row=8, column=1)
+            self.outcome.configure(text="Você ganhou o sorteio!")
+            self.nextstep.configure(text="Você jogará primeiro")
+            self.button_win.grid(row=8, column=1, pady=20, ipadx=10)
         else:
-            # O jogador errou o sorteio, então o computador começa jogando.
-            outcome.configure(text="Você perdeu!")
-            nextstep.configure(text="O computador começará jogando")
-            # Mostra o botão que leva para a tela em que o computador começa (BoardPageLose).
-            button_lose.grid(row=8, column=1)
+            self.outcome.configure(text="Você perdeu o sorteio!")
+            self.nextstep.configure(text="O computador jogará primeiro")
+            self.button_lose.grid(row=8, column=1, pady=20, ipadx=10)
+        self.outcome.update()
+        self.nextstep.update()
+        self.button_heads.update()
+        self.button_tails.update()
 
-        # Força a atualização visual imediata desses elementos na tela.
-        outcome.update()
-        nextstep.update()
-        button_heads.update()
-        button_tails.update()
-        return
-
-    def tails(self, outcome, nextstep, button_heads, button_tails, button_win, button_lose):
+    def tails(self):
         """
-        Executada quando o jogador escolhe "Tails" (coroa).
-
-        Funciona de forma idêntica à função heads(), só muda o valor de
-        "call" (agora é 0, representando a escolha "coroa").
+        Runs cointoss function in connect4module with chosen call = 0
+        Updates buttons to have no function, so user cannot reselect
+        Updates labels to show outcome of coin toss
+        Makes relevant continue button visible
         """
         call = 0
         result = c4.cointoss(call)
-        button_heads.configure(text="", command=donothing)
-        button_tails.configure(command=donothing)
+        self.button_heads.configure(text="", command=donothing)
+        self.button_tails.configure(command=donothing)
         if result == True:
-            outcome.configure(text="Você venceu!")
-            nextstep.configure(text="Você começará jogando")
-            button_win.grid(row=8, column=1)
+            self.outcome.configure(text="Você ganhou o sorteio!")
+            self.nextstep.configure(text="Você jogará primeiro")
+            self.button_win.grid(row=8, column=1, pady=20, ipadx=10)
         else:
-            outcome.configure(text="Você perdeu!")
-            nextstep.configure(text="O computador começará jogando")
-            button_lose.grid(row=8, column=1)
-        outcome.update()
-        nextstep.update()
-        button_heads.update()
-        button_tails.update()
-        return
+            self.outcome.configure(text="Você perdeu o sorteio!")
+            self.nextstep.configure(text="O computador jogará primeiro")
+            self.button_lose.grid(row=8, column=1, pady=20, ipadx=10)
+        self.outcome.update()
+        self.nextstep.update()
+        self.button_heads.update()
+        self.button_tails.update()
 
 
 class BoardPageLose(tk.Frame):
     """
-    Tela principal do jogo, usada quando o jogador PERDEU o sorteio.
-
-    Como o jogador perdeu o cara-ou-coroa, o computador precisa jogar
-    primeiro, antes mesmo do tabuleiro ser mostrado ao usuário pela
-    primeira vez.
+    Board Page, contains main game
+    If player lost toss
     """
 
     def __init__(self, window, controller):
 
-        ttk.Frame.__init__(self, window)
+        ttk.Frame.__init__(self, window, style="TFrame")
+        self.controller = controller
 
-        title = ttk.Label(
-            self, text="Connect 4 Game", font=large)
-        title.grid(row=1, column=1)
+        title = ttk.Label(self, text="Connect4", style="Title.TLabel")
+        title.configure(font=("Arial", 26, "bold"))
+        title.grid(row=1, column=1, pady=(20, 0))
 
-        # Um espaço em branco só para dar um respiro visual entre o
-        # tabuleiro e o texto de instrução logo abaixo.
-        separator = ttk.Label(self, text=" ", font=small)
+        separator = ttk.Label(self, text=" ", style="TLabel")
         separator.grid(row=3, column=1)
 
         # "statement" e os botões de coluna agora são guardados como
         # atributos (self.xxx), e não mais variáveis locais do __init__.
-        # Isso é necessário para que o botão de "Restart" consiga
+        # Isso é necessário para que o botão de "Reiniciar" consiga
         # encontrá-los e reconfigurá-los depois, mesmo esse __init__ só
         # rodando uma única vez durante toda a vida do aplicativo.
-        self.statement = ttk.Label(self, text="Escolha uma coluna", font=med)
-        self.statement.grid(row=4, column=1)
+        self.statement = ttk.Label(
+            self, text="Escolha uma coluna", style="Statement.TLabel"
+        )
+        self.statement.grid(row=4, column=1, pady=(60, 0))
 
         # Cria um botão para cada uma das 7 colunas do tabuleiro (de "a" a
-        # "g"). Agora todos chamam a mesma função "choose_column",
-        # passando apenas o número da coluna (0 a 6) — isso evita repetir
-        # 7 funções quase idênticas (choose_a, choose_b, ...).
-        button_a = ttk.Button(self, text="a", command=lambda:
-                              self.choose_column(0), width=1)
-        button_b = ttk.Button(self, text="b", command=lambda:
-                              self.choose_column(1), width=1)
-        button_c = ttk.Button(self, text="c", command=lambda:
-                              self.choose_column(2), width=1)
-        button_d = ttk.Button(self, text="d", command=lambda:
-                              self.choose_column(3), width=1)
-        button_e = ttk.Button(self, text="e", command=lambda:
-                              self.choose_column(4), width=1)
-        button_f = ttk.Button(self, text="f", command=lambda:
-                              self.choose_column(5), width=1)
-        button_g = ttk.Button(self, text="g", command=lambda:
-                              self.choose_column(6), width=1)
+        # "g"). Todos chamam a mesma função "choose_column", passando
+        # apenas o número da coluna (0 a 6).
+        button_a = ttk.Button(self, text="a", style="Column.TButton",
+                               command=lambda: self.choose_column(0), width=2)
+        button_b = ttk.Button(self, text="b", style="Column.TButton",
+                               command=lambda: self.choose_column(1), width=2)
+        button_c = ttk.Button(self, text="c", style="Column.TButton",
+                               command=lambda: self.choose_column(2), width=2)
+        button_d = ttk.Button(self, text="d", style="Column.TButton",
+                               command=lambda: self.choose_column(3), width=2)
+        button_e = ttk.Button(self, text="e", style="Column.TButton",
+                               command=lambda: self.choose_column(4), width=2)
+        button_f = ttk.Button(self, text="f", style="Column.TButton",
+                               command=lambda: self.choose_column(5), width=2)
+        button_g = ttk.Button(self, text="g", style="Column.TButton",
+                               command=lambda: self.choose_column(6), width=2)
 
         # O Tkinter posiciona os botões em coordenadas fixas de pixel (x, y)
         # para ficarem alinhados certinho embaixo de cada coluna do
-        # tabuleiro desenhado. Só que essas coordenadas variam um pouco
-        # dependendo do sistema operacional (Windows desenha com uma
-        # pequena diferença de espaçamento em relação a Mac/Linux), por
-        # isso existe essa checagem de plataforma.
+        # tabuleiro desenhado. Essas coordenadas variam um pouco dependendo
+        # do sistema operacional.
         if platform.system() == "Windows":
-            button_a.place(x=68, y=410)
-            button_b.place(x=111, y=410)
-            button_c.place(x=154, y=410)
-            button_d.place(x=197, y=410)
-            button_e.place(x=240, y=410)
-            button_f.place(x=283, y=410)
-            button_g.place(x=327, y=410)
+            button_a.place(x=68, y=422)
+            button_b.place(x=111, y=422)
+            button_c.place(x=154, y=422)
+            button_d.place(x=197, y=422)
+            button_e.place(x=240, y=422)
+            button_f.place(x=283, y=422)
+            button_g.place(x=327, y=422)
         else:
-            button_a.place(x=25, y=410)
-            button_b.place(x=68, y=410)
-            button_c.place(x=111, y=410)
-            button_d.place(x=154, y=410)
-            button_e.place(x=197, y=410)
-            button_f.place(x=240, y=410)
-            button_g.place(x=283, y=410)
+            button_a.place(x=25, y=422)
+            button_b.place(x=68, y=422)
+            button_c.place(x=111, y=422)
+            button_d.place(x=154, y=422)
+            button_e.place(x=197, y=422)
+            button_f.place(x=240, y=422)
+            button_g.place(x=283, y=422)
 
-        # Guarda todos os botões numa lista. Isso facilita mexer em todos
-        # eles de uma vez (por exemplo, desativar todos quando o jogo acabar).
         self.buttons = [button_a, button_b, button_c,
                          button_d, button_e, button_f, button_g]
 
-        # Botão de reiniciar a partida. É criado aqui junto com o resto da
+        # Botão de reiniciar a partida. Criado aqui junto com o resto da
         # tela, mas só fica visível (via .grid) depois que a partida atual
         # termina — veja end_game() e new_game() mais abaixo.
         self.restart_button = ttk.Button(
-            self, text="Restart", command=self.new_game)
+            self, text="Jogar de Novo", style="Primary.TButton",
+            command=self.new_game,
+        )
+        self.menu_button = ttk.Button(
+            self, text="Voltar ao Menu", style="Secondary.TButton",
+            command=lambda: controller.show_frame(PlayMenuPage),
+        )
 
         # Começa a primeira partida desta tela assim que ela é criada.
+        self.new_game()
+
+    def on_show(self):
+        """Chamado automaticamente pelo show_frame() sempre que o
+        usuário navega até esta tela — garante uma partida nova, mesmo
+        se a tela já tiver sido usada antes (ex: jogou, voltou ao menu
+        e ganhou/perdeu o mesmo sorteio de novo).
+        """
         self.new_game()
 
     def new_game(self):
@@ -309,16 +551,13 @@ class BoardPageLose(tk.Frame):
         (Re)inicia a partida do zero, nesta mesma tela.
 
         É chamada tanto na primeira vez que a tela aparece quanto toda
-        vez que o jogador clica no botão "Restart" depois do fim de uma
-        partida anterior.
+        vez que o jogador clica no botão "Jogar de Novo" depois do fim
+        de uma partida anterior.
         """
-        # Cria um tabuleiro novo e vazio.
         self.board = c4.makearrayboard()
 
         # Como o jogador perdeu o sorteio nesta tela, o computador sempre
-        # joga primeiro. O laço "while" é uma segurança: a função
-        # decidecomputermove pode, em teoria, sugerir uma coluna já cheia,
-        # então repetimos a escolha até cair numa coluna válida.
+        # joga primeiro.
         computercolumn = c4.decidecomputermove(self.board)
         while c4.checkifvalid(self.board, computercolumn) != True:
             computercolumn = c4.decidecomputermove(self.board)
@@ -326,9 +565,6 @@ class BoardPageLose(tk.Frame):
 
         self.redraw_board()
 
-        # Reativa todos os botões de coluna, garantindo que voltem a
-        # chamar choose_column normalmente (e não mais "donothing", que é
-        # o que fica configurado quando a partida anterior termina).
         for i, button in enumerate(self.buttons):
             button.configure(command=lambda col=i: self.choose_column(col))
             button.update()
@@ -336,8 +572,8 @@ class BoardPageLose(tk.Frame):
         self.statement.configure(text="Escolha uma coluna")
         self.statement.update()
 
-        # Esconde o botão de reiniciar até a partida atual terminar de novo.
         self.restart_button.grid_remove()
+        self.menu_button.grid_remove()
 
     def redraw_board(self):
         """Desenha (ou redesenha) o tabuleiro atual na tela."""
@@ -347,148 +583,139 @@ class BoardPageLose(tk.Frame):
         canvas.get_tk_widget().grid(row=2, column=1)
 
     def choose_column(self, column):
-        # Antes de jogar, sempre confere se a coluna ainda tem espaço
-        # livre (checkifvalid). Só faz a jogada e chama continuegame se a
-        # coluna realmente estiver disponível.
         if c4.checkifvalid(self.board, column) == True:
             c4.dousermove(self.board, column)
             self.continuegame()
 
     def continuegame(self):
         """
-        Essa é a função principal que toca o jogo para frente.
-
-        Ela é chamada toda vez que o jogador termina sua jogada. O
-        funcionamento é assim:
-
-        1. Confere o estado atual do jogo (checkgamestate).
-        2. Se o jogo ainda não acabou (gamestate == 0), faz o computador
-           jogar também, e confere de novo o estado do jogo (pois a
-           jogada do computador pode ter terminado a partida).
-        3. Dependendo do resultado final (jogador venceu, computador
-           venceu ou empate), atualiza o texto na tela, desativa os
-           botões (quando aplicável) e mostra o botão de reiniciar.
+        Função principal que toca o jogo para frente. Confere o estado
+        atual (checkgamestate), faz o computador jogar se a partida
+        continuar, e atualiza a tela conforme o resultado final.
         """
 
         gamestate = c4.checkgamestate(self.board)
 
         if gamestate == 0:
-            # O jogo ainda não acabou depois da jogada do usuário, então
-            # é a vez do computador jogar.
             computercolumn = c4.decidecomputermove(self.board)
             while c4.checkifvalid(self.board, computercolumn) != True:
                 computercolumn = c4.decidecomputermove(self.board)
             c4.docomputermove(self.board, computercolumn)
-
-            # Depois da jogada do computador, checamos o estado do jogo
-            # de novo, porque essa jogada pode ter feito o computador vencer.
             gamestate = c4.checkgamestate(self.board)
-
-            # Redesenha o tabuleiro, agora já com a nova peça do computador.
             self.redraw_board()
 
         if gamestate == 1:
-            # O jogador venceu o jogo. Redesenha o tabuleiro (agora com a
-            # sequência vencedora destacada, feita pela própria
-            # checkgamestate) e encerra a partida.
             self.redraw_board()
-            self.end_game("You Won!")
+            self.end_game("Você Venceu!")
             print("You win")
 
         if gamestate == 2:
-            # O computador venceu o jogo.
-            self.end_game("You Lost!")
+            self.end_game("Você Perdeu!")
             print("You lose")
 
         if gamestate == 3:
-            # Deu empate: o tabuleiro encheu e ninguém venceu. Diferente
-            # dos outros dois casos, aqui os botões de coluna não fazem
-            # mais sentido de qualquer forma (não há espaço livre), mas o
-            # botão de reiniciar aparece do mesmo jeito.
             self.redraw_board()
-            self.statement.configure(text="It's a draw!")
+            self.statement.configure(text="Empate!")
             self.statement.update()
-            self.restart_button.grid(row=9, column=1)
+            self.show_end_buttons()
             print("You draw")
 
     def end_game(self, message):
         """
         Reaproveitada tanto para vitória quanto para derrota: desativa
-        todos os botões de coluna (já que a partida acabou e não faz mais
-        sentido permitir novas jogadas), mostra a mensagem final e exibe
-        o botão de reiniciar.
+        os botões de coluna, mostra a mensagem final e exibe os botões
+        de reiniciar/voltar ao menu.
         """
         for button in self.buttons:
             button.configure(command=donothing)
             button.update()
         self.statement.configure(text=message)
         self.statement.update()
-        self.restart_button.grid(row=9, column=1)
+        self.show_end_buttons()
+
+    def show_end_buttons(self):
+        self.restart_button.grid(row=9, column=1, pady=(24, 4), ipadx=6)
+        self.menu_button.grid(row=10, column=1, pady=(0, 10))
 
 
 class BoardPageWin(tk.Frame):
     """
-    Tela principal do jogo, usada quando o jogador GANHOU o sorteio.
-
-    É praticamente idêntica à BoardPageLose, com uma diferença
-    importante: como o jogador ganhou o cara-ou-coroa, é ele quem começa
-    jogando. Por isso, o tabuleiro é criado e mostrado ainda totalmente
-    vazio, sem nenhuma jogada do computador antes.
+    Board Page, contains main game
+    If player won toss
     """
 
     def __init__(self, window, controller):
 
-        ttk.Frame.__init__(self, window)
+        ttk.Frame.__init__(self, window, style="TFrame")
+        self.controller = controller
 
-        title = ttk.Label(self, text="Connect 4 Game", font=large)
-        title.grid(row=1, column=1)
+        title = ttk.Label(self, text="Connect4", style="Title.TLabel")
+        title.configure(font=("Arial", 26, "bold"))
+        title.grid(row=1, column=1, pady=(20, 0))
 
-        separator = ttk.Label(self, text=" ", font=small)
+        separator = ttk.Label(self, text=" ", style="TLabel")
         separator.grid(row=3, column=1)
-        self.statement = ttk.Label(self, text="Escolha uma coluna", font=med)
-        self.statement.grid(row=4, column=1)
+
+        self.statement = ttk.Label(
+            self, text="Escolha uma coluna", style="Statement.TLabel"
+        )
+        self.statement.grid(row=4, column=1, pady=(60, 0))
 
         # Os botões de coluna (a até g) e o posicionamento deles na tela
         # funcionam exatamente da mesma forma explicada em BoardPageLose.
-        button_a = ttk.Button(self, text="a", command=lambda:
-                              self.choose_column(0), width=1)
-        button_b = ttk.Button(self, text="b", command=lambda:
-                              self.choose_column(1), width=1)
-        button_c = ttk.Button(self, text="c", command=lambda:
-                              self.choose_column(2), width=1)
-        button_d = ttk.Button(self, text="d", command=lambda:
-                              self.choose_column(3), width=1)
-        button_e = ttk.Button(self, text="e", command=lambda:
-                              self.choose_column(4), width=1)
-        button_f = ttk.Button(self, text="f", command=lambda:
-                              self.choose_column(5), width=1)
-        button_g = ttk.Button(self, text="g", command=lambda:
-                              self.choose_column(6), width=1)
+        button_a = ttk.Button(self, text="a", style="Column.TButton",
+                               command=lambda: self.choose_column(0), width=2)
+        button_b = ttk.Button(self, text="b", style="Column.TButton",
+                               command=lambda: self.choose_column(1), width=2)
+        button_c = ttk.Button(self, text="c", style="Column.TButton",
+                               command=lambda: self.choose_column(2), width=2)
+        button_d = ttk.Button(self, text="d", style="Column.TButton",
+                               command=lambda: self.choose_column(3), width=2)
+        button_e = ttk.Button(self, text="e", style="Column.TButton",
+                               command=lambda: self.choose_column(4), width=2)
+        button_f = ttk.Button(self, text="f", style="Column.TButton",
+                               command=lambda: self.choose_column(5), width=2)
+        button_g = ttk.Button(self, text="g", style="Column.TButton",
+                               command=lambda: self.choose_column(6), width=2)
 
         if platform.system() == "Windows":
-            button_a.place(x=68, y=410)
-            button_b.place(x=111, y=410)
-            button_c.place(x=154, y=410)
-            button_d.place(x=197, y=410)
-            button_e.place(x=240, y=410)
-            button_f.place(x=283, y=410)
-            button_g.place(x=327, y=410)
+            button_a.place(x=68, y=422)
+            button_b.place(x=111, y=422)
+            button_c.place(x=154, y=422)
+            button_d.place(x=197, y=422)
+            button_e.place(x=240, y=422)
+            button_f.place(x=283, y=422)
+            button_g.place(x=327, y=422)
         else:
-            button_a.place(x=25, y=410)
-            button_b.place(x=68, y=410)
-            button_c.place(x=111, y=410)
-            button_d.place(x=154, y=410)
-            button_e.place(x=197, y=410)
-            button_f.place(x=240, y=410)
-            button_g.place(x=283, y=410)
+            button_a.place(x=25, y=422)
+            button_b.place(x=68, y=422)
+            button_c.place(x=111, y=422)
+            button_d.place(x=154, y=422)
+            button_e.place(x=197, y=422)
+            button_f.place(x=240, y=422)
+            button_g.place(x=283, y=422)
 
         self.buttons = [button_a, button_b, button_c,
                          button_d, button_e, button_f, button_g]
 
         self.restart_button = ttk.Button(
-            self, text="Restart", command=self.new_game)
+            self, text="Jogar de Novo", style="Primary.TButton",
+            command=self.new_game,
+        )
+        self.menu_button = ttk.Button(
+            self, text="Voltar ao Menu", style="Secondary.TButton",
+            command=lambda: controller.show_frame(PlayMenuPage),
+        )
 
         # Começa a primeira partida desta tela assim que ela é criada.
+        self.new_game()
+
+    def on_show(self):
+        """Chamado automaticamente pelo show_frame() sempre que o
+        usuário navega até esta tela — garante uma partida nova, mesmo
+        se a tela já tiver sido usada antes (ex: jogou, voltou ao menu
+        e ganhou/perdeu o mesmo sorteio de novo).
+        """
         self.new_game()
 
     def new_game(self):
@@ -510,6 +737,7 @@ class BoardPageWin(tk.Frame):
         self.statement.update()
 
         self.restart_button.grid_remove()
+        self.menu_button.grid_remove()
 
     def redraw_board(self):
         """Desenha (ou redesenha) o tabuleiro atual na tela."""
@@ -526,16 +754,12 @@ class BoardPageWin(tk.Frame):
     def continuegame(self):
         """
         Função principal do jogo nesta tela. Funciona exatamente da
-        mesma forma explicada em BoardPageLose.continuegame: checa o
-        estado do jogo, faz o computador jogar se a partida continuar,
-        e atualiza a tela conforme o resultado final (vitória, derrota
-        ou empate).
+        mesma forma explicada em BoardPageLose.continuegame.
         """
 
         gamestate = c4.checkgamestate(self.board)
 
         if gamestate == 0:
-            # Ainda não acabou: é a vez do computador jogar.
             computercolumn = c4.decidecomputermove(self.board)
             while c4.checkifvalid(self.board, computercolumn) != True:
                 computercolumn = c4.decidecomputermove(self.board)
@@ -544,65 +768,54 @@ class BoardPageWin(tk.Frame):
             self.redraw_board()
 
         if gamestate == 1:
-            # O jogador venceu: redesenha o tabuleiro e encerra a partida.
             self.redraw_board()
             self.end_game("Você Venceu!")
+            print("You win")
 
         if gamestate == 2:
-            # O computador venceu.
             self.end_game("Você Perdeu!")
+            print("You lose")
 
         if gamestate == 3:
-            # Deu empate: redesenha o tabuleiro, mostra a mensagem e
-            # exibe o botão de reiniciar.
             self.redraw_board()
-            self.statement.configure(text="O jogo empatou!")
+            self.statement.configure(text="Empate!")
             self.statement.update()
-            self.restart_button.grid(row=9, column=1)
+            self.show_end_buttons()
+            print("You draw")
 
     def end_game(self, message):
         """
         Reaproveitada tanto para vitória quanto para derrota: desativa
-        os botões de coluna, mostra a mensagem final e exibe o botão de
-        reiniciar.
+        os botões de coluna, mostra a mensagem final e exibe os botões
+        de reiniciar/voltar ao menu.
         """
         for button in self.buttons:
             button.configure(command=donothing)
             button.update()
         self.statement.configure(text=message)
         self.statement.update()
-        self.restart_button.grid(row=9, column=1)
+        self.show_end_buttons()
+
+    def show_end_buttons(self):
+        self.restart_button.grid(row=9, column=1, pady=(24, 4), ipadx=6)
+        self.menu_button.grid(row=10, column=1, pady=(0, 10))
 
 
 def donothing():
     """
-    Função vazia, que literalmente não faz nada.
-
-    Ela é usada como "comando substituto" de um botão quando queremos
-    que ele pareça desativado (o botão continua visível e clicável na
-    tela, mas nada acontece ao clicar nele).
+    Function that does nothing.
+    Makes a button useless if assigned to it
     """
     pass
 
 
+# Stops program crashing on mac due to UnicodeDecodeError
 def runapp(app):
-    """
-    Roda o loop principal do aplicativo (mainloop).
-
-    Existe um problema conhecido no Mac, em que o loop principal do
-    Tkinter às vezes lança um erro chamado UnicodeDecodeError sem
-    motivo real, o que derrubaria o programa. Para evitar isso, essa
-    função "pega" esse erro específico e simplesmente reinicia o
-    mainloop, como se nada tivesse acontecido.
-    """
     try:
         app.mainloop()
     except UnicodeDecodeError:
         runapp(app)
 
 
-# Cria a aplicação e a coloca para rodar. Essas duas linhas são o ponto
-# de entrada do programa: é a partir daqui que a janela do jogo aparece
-# na tela e o usuário pode começar a jogar.
 app = Connect4App()
 runapp(app)
