@@ -5,6 +5,8 @@ from matplotlib.figure import Figure
 import tkinter as tk
 from tkinter import ttk
 import connect4module as c4
+import os
+from PIL import Image, ImageTk
 
 matplotlib.use("TkAgg")
 
@@ -132,7 +134,7 @@ class Connect4App(tk.Tk):
 
         # creates each page and adds it to container
         for f in (StartPage, RulesPage, PlayMenuPage, LocalPage,
-                  TossPage, BoardPageLose, BoardPageWin):
+                  TossPage, BoardPageLose, BoardPageWin, CreditsPage):
             frame = f(container, self)
             self.frames[f] = frame   # adds pages to dictionary
             frame.grid(row=0, column=0, sticky="nsew")
@@ -185,9 +187,15 @@ class StartPage(tk.Frame):
         ttk.Frame.__init__(self, window, style="TFrame")
         self.grid_columnconfigure(1, weight=1)
 
-        title = ttk.Label(
-            self, text="Bem-vindo ao Connect4", style="Title.TLabel"
-        )
+        # Carrega a imagem do título e redimensiona com o Pillow, a imagem é quadrada por enquanto, por isso
+        # redimensionei ela como 250x250.
+        caminho = os.path.join(os.path.dirname(__file__), "titulo.png")
+        img = Image.open(caminho).resize((250, 250))
+        self.titulo_img = ImageTk.PhotoImage(img)
+
+        title = ttk.Label(self, image=self.titulo_img, background=BG_COLOR)
+        title.grid(row=1, column=1, pady=(60, 6))
+        title = ttk.Label(self, image=self.titulo_img, background=BG_COLOR)
         title.grid(row=1, column=1, pady=(60, 6))
 
         subtitle = ttk.Label(
@@ -212,6 +220,14 @@ class StartPage(tk.Frame):
             command=lambda: controller.show_frame(PlayMenuPage),
         )
         button_play.grid(row=4, column=1, pady=8, ipadx=10)
+
+        button_credits = ttk.Button(
+            self,
+            text="Créditos",
+            style="Secondary.TButton",
+            command=lambda: controller.show_frame(CreditsPage),
+        )
+        button_credits.grid(row=5, column=1, pady=8, ipadx=10)
 
 
 class RulesPage(tk.Frame):
@@ -330,6 +346,40 @@ class LocalPage(tk.Frame):
             text="Voltar",
             style="Secondary.TButton",
             command=lambda: controller.show_frame(PlayMenuPage),
+        )
+        button_back.grid(row=3, column=1, pady=10, ipadx=10)
+
+class CreditsPage(tk.Frame):
+    """
+    Tela de créditos: por enquanto só exibe um aviso de que a área
+    ainda está em desenvolvimento.
+    """
+
+    def __init__(self, window, controller):
+
+        ttk.Frame.__init__(self, window, style="TFrame")
+        self.grid_columnconfigure(1, weight=1)
+
+        title = ttk.Label(self, text="Créditos", style="Title.TLabel")
+        title.configure(font=("Arial", 28, "bold"))
+        title.grid(row=1, column=1, pady=(80, 20))
+
+    # Elaborar um texto bem feito para colocar nos créditos.
+
+        message = ttk.Label(
+            self,
+            text="Área em desenvolvimento, aguarde novos releases",
+            style="Subtitle.TLabel",
+            wraplength=420,
+            justify="center",
+        )
+        message.grid(row=2, column=1, pady=(0, 40))
+
+        button_back = ttk.Button(
+            self,
+            text="Voltar",
+            style="Secondary.TButton",
+            command=lambda: controller.show_frame(StartPage),
         )
         button_back.grid(row=3, column=1, pady=10, ipadx=10)
 
@@ -464,68 +514,68 @@ class BoardPageLose(tk.Frame):
         ttk.Frame.__init__(self, window, style="TFrame")
         self.controller = controller
 
+        # Deixa as colunas das laterais ocuparem o espaço que sobrar
+        # para manter o conteúdo no meio da tela
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(2, weight=1)
+
+        # Faz a mesma coisa com as linhas de cima e de baixo
+
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(11, weight=1)
+
         title = ttk.Label(self, text="Connect4", style="Title.TLabel")
         title.configure(font=("Arial", 26, "bold"))
         title.grid(row=1, column=1, pady=(20, 0))
-
-        separator = ttk.Label(self, text=" ", style="TLabel")
-        separator.grid(row=3, column=1)
 
         # "statement" e os botões de coluna agora são guardados como
         # atributos (self.xxx), e não mais variáveis locais do __init__.
         # Isso é necessário para que o botão de "Reiniciar" consiga
         # encontrá-los e reconfigurá-los depois, mesmo esse __init__ só
         # rodando uma única vez durante toda a vida do aplicativo.
+
         self.statement = ttk.Label(
             self, text="Escolha uma coluna", style="Statement.TLabel"
         )
         self.statement.grid(row=4, column=1, pady=(60, 0))
 
-        # Cria um botão para cada uma das 7 colunas do tabuleiro (de "a" a
-        # "g"). Todos chamam a mesma função "choose_column", passando
-        # apenas o número da coluna (0 a 6).
-        button_a = ttk.Button(self, text="a", style="Column.TButton",
-                               command=lambda: self.choose_column(0), width=2)
-        button_b = ttk.Button(self, text="b", style="Column.TButton",
-                               command=lambda: self.choose_column(1), width=2)
-        button_c = ttk.Button(self, text="c", style="Column.TButton",
-                               command=lambda: self.choose_column(2), width=2)
-        button_d = ttk.Button(self, text="d", style="Column.TButton",
-                               command=lambda: self.choose_column(3), width=2)
-        button_e = ttk.Button(self, text="e", style="Column.TButton",
-                               command=lambda: self.choose_column(4), width=2)
-        button_f = ttk.Button(self, text="f", style="Column.TButton",
-                               command=lambda: self.choose_column(5), width=2)
-        button_g = ttk.Button(self, text="g", style="Column.TButton",
-                               command=lambda: self.choose_column(6), width=2)
+        # Cria uma área para colocar os botões embaixo do tabuleiro
 
-        # O Tkinter posiciona os botões em coordenadas fixas de pixel (x, y)
-        # para ficarem alinhados certinho embaixo de cada coluna do
-        # tabuleiro desenhado. Essas coordenadas variam um pouco dependendo
-        # do sistema operacional.
-        if platform.system() == "Windows":
-            button_a.place(x=68, y=422)
-            button_b.place(x=111, y=422)
-            button_c.place(x=154, y=422)
-            button_d.place(x=197, y=422)
-            button_e.place(x=240, y=422)
-            button_f.place(x=283, y=422)
-            button_g.place(x=327, y=422)
-        else:
-            button_a.place(x=25, y=422)
-            button_b.place(x=68, y=422)
-            button_c.place(x=111, y=422)
-            button_d.place(x=154, y=422)
-            button_e.place(x=197, y=422)
-            button_f.place(x=240, y=422)
-            button_g.place(x=283, y=422)
+        self.button_row = ttk.Frame(self, width=350, height=40)
+        self.button_row.grid(row=3, column=1, pady=(4, 0))
 
-        self.buttons = [button_a, button_b, button_c,
-                         button_d, button_e, button_f, button_g]
+        # Lista para guardar os botões
+
+        self.buttons = []
+
+        # Cria um botão para cada coluna do jogo
+
+        for i, letra in enumerate("abcdefg"):
+            btn = ttk.Button(
+                self.button_row,
+                text=letra,
+                style="Column.TButton",
+                width=2,
+                command=lambda col=i: self.choose_column(col)
+            )
+
+            # Coloca os botões em suas posições
+
+            btn.place(
+                relx=0.01 + 0.98 * (i + 1) / 8,
+                rely=0,
+                anchor="n"
+            )
+
+            # Adiciona o botão na lista
+
+            self.buttons.append(btn)
 
         # Botão de reiniciar a partida. Criado aqui junto com o resto da
         # tela, mas só fica visível (via .grid) depois que a partida atual
         # termina — veja end_game() e new_game() mais abaixo.
+        
         self.restart_button = ttk.Button(
             self, text="Jogar de Novo", style="Primary.TButton",
             command=self.new_game,
@@ -649,54 +699,58 @@ class BoardPageWin(tk.Frame):
         ttk.Frame.__init__(self, window, style="TFrame")
         self.controller = controller
 
+    # Deixa as colunas das laterais ocuparem o espaço que sobrar
+    # para manter o conteúdo no meio da tela
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(2, weight=1)
+
+    # Faz a mesma coisa com as linhas de cima e de baixo
+
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(11, weight=1)
+
         title = ttk.Label(self, text="Connect4", style="Title.TLabel")
         title.configure(font=("Arial", 26, "bold"))
         title.grid(row=1, column=1, pady=(20, 0))
 
-        separator = ttk.Label(self, text=" ", style="TLabel")
-        separator.grid(row=3, column=1)
 
         self.statement = ttk.Label(
             self, text="Escolha uma coluna", style="Statement.TLabel"
         )
         self.statement.grid(row=4, column=1, pady=(60, 0))
 
-        # Os botões de coluna (a até g) e o posicionamento deles na tela
-        # funcionam exatamente da mesma forma explicada em BoardPageLose.
-        button_a = ttk.Button(self, text="a", style="Column.TButton",
-                               command=lambda: self.choose_column(0), width=2)
-        button_b = ttk.Button(self, text="b", style="Column.TButton",
-                               command=lambda: self.choose_column(1), width=2)
-        button_c = ttk.Button(self, text="c", style="Column.TButton",
-                               command=lambda: self.choose_column(2), width=2)
-        button_d = ttk.Button(self, text="d", style="Column.TButton",
-                               command=lambda: self.choose_column(3), width=2)
-        button_e = ttk.Button(self, text="e", style="Column.TButton",
-                               command=lambda: self.choose_column(4), width=2)
-        button_f = ttk.Button(self, text="f", style="Column.TButton",
-                               command=lambda: self.choose_column(5), width=2)
-        button_g = ttk.Button(self, text="g", style="Column.TButton",
-                               command=lambda: self.choose_column(6), width=2)
+     # Cria uma área para colocar os botões embaixo do tabuleiro
 
-        if platform.system() == "Windows":
-            button_a.place(x=68, y=422)
-            button_b.place(x=111, y=422)
-            button_c.place(x=154, y=422)
-            button_d.place(x=197, y=422)
-            button_e.place(x=240, y=422)
-            button_f.place(x=283, y=422)
-            button_g.place(x=327, y=422)
-        else:
-            button_a.place(x=25, y=422)
-            button_b.place(x=68, y=422)
-            button_c.place(x=111, y=422)
-            button_d.place(x=154, y=422)
-            button_e.place(x=197, y=422)
-            button_f.place(x=240, y=422)
-            button_g.place(x=283, y=422)
+        self.button_row = ttk.Frame(self, width=350, height=40)
+        self.button_row.grid(row=3, column=1, pady=(4, 0))
 
-        self.buttons = [button_a, button_b, button_c,
-                         button_d, button_e, button_f, button_g]
+        # Lista para guardar os botões
+        
+        self.buttons = []
+
+        # Cria um botão para cada coluna do jogo
+
+        for i, letra in enumerate("abcdefg"):
+            btn = ttk.Button(
+                self.button_row,
+                text=letra,
+                style="Column.TButton",
+                width=2,
+                command=lambda col=i: self.choose_column(col)
+            )
+
+            # Coloca os botões em suas posições
+
+            btn.place(
+                relx=0.01 + 0.98 * (i + 1) / 8,
+                rely=0,
+                anchor="n"
+            )
+
+            # Adiciona o botão na lista
+
+            self.buttons.append(btn)
 
         self.restart_button = ttk.Button(
             self, text="Jogar de Novo", style="Primary.TButton",
