@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 import connect4module as c4
 import os
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageSequence
 
 matplotlib.use("TkAgg")
 
@@ -229,7 +229,6 @@ class StartPage(tk.Frame):
         )
         button_credits.grid(row=5, column=1, pady=8, ipadx=10)
 
-
 class RulesPage(tk.Frame):
     """
     Tela de regras: explica em poucas palavras como o jogo funciona,
@@ -263,7 +262,27 @@ class RulesPage(tk.Frame):
             justify="left",
             wraplength=520,
         )
-        rules_label.grid(row=2, column=1, padx=40, pady=(0, 30))
+        rules_label.grid(row=2, column=1, padx=40, pady=(0, 20))
+
+        # --- GIF animado ---
+        caminho_gif = os.path.join(os.path.dirname(__file__), "vd.gif")
+        gif = Image.open(caminho_gif)
+
+        self.gif_frames = []
+        self.gif_delays = []
+        for frame in ImageSequence.Iterator(gif):
+            frame_img = frame.convert("RGBA")
+            frame_img.thumbnail((480, 360))
+            self.gif_frames.append(ImageTk.PhotoImage(frame_img))
+            self.gif_delays.append(frame.info.get("duration", 100))
+
+        self.gif_label = ttk.Label(
+            self, image=self.gif_frames[0], background=BG_COLOR
+        )
+        self.gif_label.grid(row=3, column=1, pady=(0, 20))
+
+        self.gif_index = 0
+        self.animate_gif()
 
         button_back = ttk.Button(
             self,
@@ -271,8 +290,14 @@ class RulesPage(tk.Frame):
             style="Secondary.TButton",
             command=lambda: controller.show_frame(StartPage),
         )
-        button_back.grid(row=3, column=1, pady=10, ipadx=10)
+        button_back.grid(row=4, column=1, pady=10, ipadx=10)
 
+    def animate_gif(self):
+        """Mostra o quadro atual e agenda o próximo."""
+        self.gif_label.configure(image=self.gif_frames[self.gif_index])
+        delay = self.gif_delays[self.gif_index]
+        self.gif_index = (self.gif_index + 1) % len(self.gif_frames)
+        self.after(delay, self.animate_gif)
 
 class PlayMenuPage(tk.Frame):
     """
@@ -362,18 +387,44 @@ class CreditsPage(tk.Frame):
 
         title = ttk.Label(self, text="Créditos", style="Title.TLabel")
         title.configure(font=("Arial", 28, "bold"))
-        title.grid(row=1, column=1, pady=(80, 20))
+        title.grid(row=1, column=1, pady=(40, 20))
 
-    # Elaborar um texto bem feito para colocar nos créditos.
+        credits_text = (
+            "Essa é uma branch do repositório:\n"
+            "https://github.com/saiduc/Connect-4-Tkinter, pertencente ao "
+            "Sai Pandian.\n\n"
+            "O repositório foi escolhido para receber melhorias em um "
+            "Projeto Integrador da Fatec de Ribeirão Preto - SP. Os "
+            "participantes foram os alunos do 2° semestre do curso de "
+            "Análise e Desenvolvimento de Sistemas: Antonio Pires, Hugo "
+            "Oliveira, Luiz Felipe, Mateus dos Santos, Nícolas dos Anjos "
+            "e Paulo Otávio.\n\n"
+            "As melhorias até o momento foram:\n\n"
+            "• Tradução para português\n"
+            "• Criação de um botão de restart das partidas\n"
+            "• Melhorias na parte visual (front-end), adicionando "
+            "botões, títulos e cores\n"
+            "• Menu na tela inicial, que conta com a explicação das "
+            "regras do jogo e um vídeo de demonstração de partida\n"
+            "• Botão de regressar ao menu após o fim de uma partida\n"
+            "• Centralização do tabuleiro\n"
+            "• Criação de uma logo do Connect4 na tela inicial do "
+            "programa"
+        )
 
+        # Mantemos a mesma fonte (style="Subtitle.TLabel") que já estava
+        # no texto provisório ("Área em desenvolvimento..."). Como agora
+        # o texto é bem mais longo, só ajustamos o alinhamento para a
+        # esquerda (mais fácil de ler em parágrafos/listas do que
+        # centralizado) e aumentamos o "wraplength" para caber melhor.
         message = ttk.Label(
             self,
-            text="Área em desenvolvimento, aguarde novos releases",
+            text=credits_text,
             style="Subtitle.TLabel",
-            wraplength=420,
-            justify="center",
+            wraplength=560,
+            justify="left",
         )
-        message.grid(row=2, column=1, pady=(0, 40))
+        message.grid(row=2, column=1, padx=30, pady=(0, 30))
 
         button_back = ttk.Button(
             self,
