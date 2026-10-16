@@ -22,6 +22,12 @@ SECONDARY_HOVER = "#33607F"
 TEXT_COLOR = "#1D3557"      # azul bem escuro, usado no texto principal
 MUTED_TEXT_COLOR = "#6C7A89"  # cinza-azulado, para textos secundários
 
+# Cores usadas no modo 1 vs 1 para mostrar de quem é a vez. São versões mais
+# escuras do vermelho e do amarelo das peças, para o texto continuar legível
+# sobre o fundo bege.
+PLAYER1_COLOR = "#C1121F"   # Jogador 1 (peças vermelhas)
+PLAYER2_COLOR = "#A67C00"   # Jogador 2 (peças amarelas)
+
 # Fonte de destaque (títulos)
 # Fonte de corpo (textos/instruções)
 TITLE_FONT = ("Arial", 34, "bold")
@@ -110,6 +116,9 @@ def setup_styles(root):
         padding=(6, 6),
     )
 
+    # Campos de texto (ex: nomes dos jogadores no modo 1 vs 1)
+    style.configure("TEntry", padding=(8, 6))
+
 
 class Connect4App(tk.Tk):
     """
@@ -124,6 +133,14 @@ class Connect4App(tk.Tk):
         self.configure(background=BG_COLOR)
         setup_styles(self)
 
+        # Nomes dos jogadores do modo 1 vs 1. Ficam guardados aqui, no
+        # controlador, porque são compartilhados entre duas telas: a
+        # LocalPage (onde os nomes são digitados) e a LocalBoardPage (onde
+        # a partida acontece). Os valores abaixo são só os nomes padrão,
+        # usados caso nenhum nome seja digitado.
+        self.player1_name = "Jogador 1"
+        self.player2_name = "Jogador 2"
+
         container = tk.Frame(self, background=BG_COLOR)
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
@@ -134,7 +151,8 @@ class Connect4App(tk.Tk):
 
         # creates each page and adds it to container
         for f in (StartPage, RulesPage, PlayMenuPage, LocalPage,
-                  TossPage, BoardPageLose, BoardPageWin, CreditsPage):
+                  TossPage, BoardPageLose, BoardPageWin, LocalBoardPage,
+                  CreditsPage):
             frame = f(container, self)
             self.frames[f] = frame   # adds pages to dictionary
             frame.grid(row=0, column=0, sticky="nsew")
@@ -301,8 +319,8 @@ class RulesPage(tk.Frame):
 
 class PlayMenuPage(tk.Frame):
     """
-    Tela de escolha do modo de jogo: contra a máquina (já funcional) ou
-    1 vs 1 local (ainda não implementado, só o botão de acesso).
+    Tela de escolha do modo de jogo: contra a máquina ou 1 vs 1 local
+    (dois jogadores no mesmo computador).
     """
 
     def __init__(self, window, controller):
@@ -343,36 +361,118 @@ class PlayMenuPage(tk.Frame):
 
 class LocalPage(tk.Frame):
     """
-    Tela reservada para o modo 1 vs 1 local. A funcionalidade ainda não foi
-    desenvolvida — por enquanto só existe a navegação até aqui, avisando
-    que o modo está a caminho.
+    Tela do modo 1 vs 1 local: antes de começar a partida, cada jogador
+    digita o próprio nome. Se um campo ficar em branco, é usado o nome
+    padrão ("Jogador 1" ou "Jogador 2").
     """
+
+    # Limite de caracteres por nome, para o texto não ficar grande demais
+    # na tela do tabuleiro.
+    MAX_NAME_LENGTH = 20
+
+    HINT_TEXT = ("Deixe em branco para usar os nomes padrão "
+                 "(Jogador 1 e Jogador 2).")
 
     def __init__(self, window, controller):
 
         ttk.Frame.__init__(self, window, style="TFrame")
+        self.controller = controller
         self.grid_columnconfigure(1, weight=1)
 
-        title = ttk.Label(self, text="1 vs 1 Local", style="Title.TLabel")
-        title.configure(font=("Georgia", 28, "bold"))
-        title.grid(row=1, column=1, pady=(80, 20))
+        title = ttk.Label(self, text="1 vs 1", style="Title.TLabel")
+        title.configure(font=("Arial", 28, "bold"))
+        title.grid(row=1, column=1, pady=(50, 6))
 
-        message = ttk.Label(
-            self,
-            text="Em breve! Este modo de jogo ainda está em desenvolvimento.",
-            style="Subtitle.TLabel",
-            wraplength=420,
-            justify="center",
+        subtitle = ttk.Label(
+            self, text="Digite o nome de cada jogador", style="Subtitle.TLabel"
         )
-        message.grid(row=2, column=1, pady=(0, 40))
+        subtitle.grid(row=2, column=1, pady=(0, 24))
+
+        # Regra que impede digitar mais do que MAX_NAME_LENGTH caracteres:
+        # o Tkinter chama is_valid_length a cada tecla (o "%P" é o texto
+        # que o campo teria depois da tecla) e só aceita a digitação se a
+        # função devolver True.
+        validate_length = (self.register(self.is_valid_length), "%P")
+
+        label_p1 = ttk.Label(
+            self, text="Jogador 1 (peças vermelhas)", style="Body.TLabel"
+        )
+        label_p1.grid(row=3, column=1, pady=(0, 4))
+        self.entry_p1 = ttk.Entry(
+            self, width=26, justify="center", font=BODY_FONT,
+            validate="key", validatecommand=validate_length,
+        )
+        self.entry_p1.grid(row=4, column=1, pady=(0, 16))
+
+        label_p2 = ttk.Label(
+            self, text="Jogador 2 (peças amarelas)", style="Body.TLabel"
+        )
+        label_p2.grid(row=5, column=1, pady=(0, 4))
+        self.entry_p2 = ttk.Entry(
+            self, width=26, justify="center", font=BODY_FONT,
+            validate="key", validatecommand=validate_length,
+        )
+        self.entry_p2.grid(row=6, column=1, pady=(0, 12))
+
+        # Mensagem de apoio: normalmente mostra a dica sobre os nomes
+        # padrão, e vira um aviso em vermelho quando há algum problema.
+        self.message = ttk.Label(
+            self, text=self.HINT_TEXT, style="Body.TLabel",
+            foreground=MUTED_TEXT_COLOR, wraplength=420, justify="center",
+        )
+        self.message.grid(row=7, column=1, padx=20)
+
+        button_start = ttk.Button(
+            self, text="Iniciar Partida", style="Primary.TButton",
+            command=self.start_game,
+        )
+        button_start.grid(row=8, column=1, pady=(20, 8), ipadx=10)
 
         button_back = ttk.Button(
-            self,
-            text="Voltar",
-            style="Secondary.TButton",
+            self, text="Voltar", style="Secondary.TButton",
             command=lambda: controller.show_frame(PlayMenuPage),
         )
-        button_back.grid(row=3, column=1, pady=10, ipadx=10)
+        button_back.grid(row=9, column=1, pady=10, ipadx=10)
+
+        # Enter no primeiro campo pula para o segundo; Enter no segundo
+        # inicia a partida.
+        self.entry_p1.bind("<Return>", lambda event: self.entry_p2.focus_set())
+        self.entry_p2.bind("<Return>", lambda event: self.start_game())
+
+    def on_show(self):
+        """Chamado automaticamente pelo show_frame() sempre que o usuário
+        chega a esta tela: limpa os campos e a mensagem, para cada nova
+        partida começar com a tela de nomes vazia."""
+        self.entry_p1.delete(0, tk.END)
+        self.entry_p2.delete(0, tk.END)
+        self.set_message(self.HINT_TEXT, MUTED_TEXT_COLOR)
+        # after_idle espera a tela terminar de aparecer antes de colocar o
+        # cursor no primeiro campo.
+        self.after_idle(self.entry_p1.focus_set)
+
+    def is_valid_length(self, new_text):
+        return len(new_text) <= self.MAX_NAME_LENGTH
+
+    def set_message(self, text, color):
+        self.message.configure(text=text, foreground=color)
+
+    def start_game(self):
+        """Lê os nomes digitados, valida e abre a tela do tabuleiro."""
+        name1 = self.entry_p1.get().strip() or "Jogador 1"
+        name2 = self.entry_p2.get().strip() or "Jogador 2"
+
+        # Com nomes iguais, a mensagem "Vez de ..." não diria quem é quem.
+        if name1.lower() == name2.lower():
+            self.set_message(
+                "Os dois jogadores não podem ter o mesmo nome.",
+                PRIMARY_COLOR,
+            )
+            return
+
+        self.controller.player1_name = name1
+        self.controller.player2_name = name2
+        self.controller.show_frame(LocalBoardPage)
+
 
 class CreditsPage(tk.Frame):
     """
@@ -409,7 +509,8 @@ class CreditsPage(tk.Frame):
             "• Botão de regressar ao menu após o fim de uma partida\n"
             "• Centralização do tabuleiro\n"
             "• Criação de uma logo do Connect4 na tela inicial do "
-            "programa"
+            "programa\n"
+            "• Criação do modo 1v1 local"
         )
 
         # Mantemos a mesma fonte (style="Subtitle.TLabel") que já estava
@@ -476,7 +577,7 @@ class TossPage(tk.Frame):
         self.nextstep = ttk.Label(self, text="", style="Body.TLabel")
         self.nextstep.grid(row=7, column=1)
 
-        # Hidden buttons that becomes visible after user makes selection
+        # Botões ocultos que ficam visíveis depois que o usuário faz uma seleção
         self.button_win = ttk.Button(
             self, text="Continuar", style="Primary.TButton",
             command=lambda: controller.show_frame(BoardPageWin),
@@ -904,6 +1005,108 @@ class BoardPageWin(tk.Frame):
     def show_end_buttons(self):
         self.restart_button.grid(row=9, column=1, pady=(24, 4), ipadx=6)
         self.menu_button.grid(row=10, column=1, pady=(0, 10))
+
+
+class LocalBoardPage(BoardPageWin):
+    """
+    Tabuleiro do modo 1 vs 1 local.
+
+    Reaproveita toda a interface da BoardPageWin (título, tabuleiro,
+    botões de coluna, "Jogar de Novo" e "Voltar ao Menu") e só troca a
+    lógica de turno: em vez de o computador responder depois da jogada,
+    os dois jogadores humanos se alternam.
+
+    A lógica do jogo continua a mesma do modo contra a máquina:
+        - o Jogador 1 usa as peças vermelhas (valor 1 no tabuleiro), jogadas
+          com c4.dousermove;
+        - o Jogador 2 usa as peças amarelas (valor 5 no tabuleiro), jogadas
+          com c4.docomputermove (apesar do nome, essa função só coloca a
+          peça de valor 5 na coluna, então serve para qualquer segundo
+          jogador);
+        - c4.checkgamestate continua dizendo o resultado: 1 = vermelhas
+          venceram, 2 = amarelas venceram, 3 = empate, 0 = segue o jogo.
+    """
+
+    def __init__(self, window, controller):
+        BoardPageWin.__init__(self, window, controller)
+
+        # Nomes grandes quebram em duas linhas em vez de alargar a janela.
+        self.statement.configure(wraplength=380, justify="center")
+
+    def player_name(self, player):
+        if player == 1:
+            return self.controller.player1_name
+        return self.controller.player2_name
+
+    def player_color(self, player):
+        if player == 1:
+            return PLAYER1_COLOR
+        return PLAYER2_COLOR
+
+    def new_game(self):
+        """
+        (Re)inicia a partida: tabuleiro vazio e vez do Jogador 1. É chamada
+        quando a tela aparece (via on_show) e no botão "Jogar de Novo".
+        Os nomes são lidos do controlador a cada partida, então sempre
+        refletem o que foi digitado na LocalPage.
+        """
+        self.board = c4.makearrayboard()
+        self.current_player = 1
+        self.redraw_board()
+
+        for i, button in enumerate(self.buttons):
+            button.configure(command=lambda col=i: self.choose_column(col))
+
+        self.show_turn()
+
+        self.restart_button.grid_remove()
+        self.menu_button.grid_remove()
+
+    def show_turn(self):
+        """Mostra de quem é a vez, na cor das peças desse jogador."""
+        self.statement.configure(
+            text=f"Vez de {self.player_name(self.current_player)}",
+            foreground=self.player_color(self.current_player),
+        )
+
+    def choose_column(self, column):
+        if c4.checkifvalid(self.board, column) != True:
+            return
+
+        if self.current_player == 1:
+            c4.dousermove(self.board, column)
+        else:
+            c4.docomputermove(self.board, column)
+
+        self.continuegame()
+
+    def continuegame(self):
+        """
+        Chamada depois de cada jogada: confere o resultado e, se a partida
+        continua, passa a vez para o outro jogador.
+        """
+        gamestate = c4.checkgamestate(self.board)
+
+        # O desenho vem depois da checagem de propósito: quando alguém
+        # vence, checkgamestate marca as 4 peças vencedoras no tabuleiro, e
+        # é essa marcação que faz o desenho destacá-las com a linha grossa.
+        self.redraw_board()
+
+        if gamestate == 0:
+            if self.current_player == 1:
+                self.current_player = 2
+            else:
+                self.current_player = 1
+            self.show_turn()
+
+        elif gamestate == 3:
+            self.end_game("Empate!")
+            self.statement.configure(foreground=TEXT_COLOR)
+
+        else:
+            winner = 1 if gamestate == 1 else 2
+            self.end_game(f"{self.player_name(winner)} venceu!")
+            self.statement.configure(foreground=self.player_color(winner))
 
 
 def donothing():
