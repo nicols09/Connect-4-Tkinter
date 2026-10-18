@@ -141,6 +141,10 @@ class Connect4App(tk.Tk):
         self.player1_name = "Jogador 1"
         self.player2_name = "Jogador 2"
 
+        # Quem começa a partida do 1 vs 1 (1 ou 2). É definido pelo cara
+        # ou coroa (LocalTossPage) e lido pela LocalBoardPage.
+        self.local_first_player = 1
+
         container = tk.Frame(self, background=BG_COLOR)
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
@@ -151,8 +155,8 @@ class Connect4App(tk.Tk):
 
         # creates each page and adds it to container
         for f in (StartPage, RulesPage, PlayMenuPage, LocalPage,
-                  TossPage, BoardPageLose, BoardPageWin, LocalBoardPage,
-                  CreditsPage):
+                  TossPage, LocalTossPage, BoardPageLose, BoardPageWin,
+                  LocalBoardPage, CreditsPage):
             frame = f(container, self)
             self.frames[f] = frame   # adds pages to dictionary
             frame.grid(row=0, column=0, sticky="nsew")
@@ -471,13 +475,14 @@ class LocalPage(tk.Frame):
 
         self.controller.player1_name = name1
         self.controller.player2_name = name2
-        self.controller.show_frame(LocalBoardPage)
+        self.controller.show_frame(LocalTossPage)
 
 
 class CreditsPage(tk.Frame):
     """
-    Tela de créditos: por enquanto só exibe um aviso de que a área
-    ainda está em desenvolvimento.
+    Tela de créditos: mostra as informações do projeto e dos participantes
+    dentro de uma área com barra de rolagem, para o texto poder crescer
+    sem aumentar o tamanho da janela.
     """
 
     def __init__(self, window, controller):
@@ -513,19 +518,50 @@ class CreditsPage(tk.Frame):
             "• Criação do modo 1v1 local"
         )
 
-        # Mantemos a mesma fonte (style="Subtitle.TLabel") que já estava
-        # no texto provisório ("Área em desenvolvimento..."). Como agora
-        # o texto é bem mais longo, só ajustamos o alinhamento para a
-        # esquerda (mais fácil de ler em parágrafos/listas do que
-        # centralizado) e aumentamos o "wraplength" para caber melhor.
-        message = ttk.Label(
-            self,
-            text=credits_text,
-            style="Subtitle.TLabel",
-            wraplength=560,
-            justify="left",
+        # Área de rolagem: em vez de um Label (que cresce junto com o texto
+        # e estica a janela), usamos um Text de altura limitada com uma
+        # barra de rolagem ao lado. Assim o texto pode crescer à vontade e
+        # a janela continua do mesmo tamanho.
+        #
+        # A fonte continua sendo a mesma do texto provisório que existia
+        # aqui antes (SUBTITLE_FONT, a fonte do estilo "Subtitle.TLabel").
+        text_area = ttk.Frame(self)
+        text_area.grid(row=2, column=1, padx=30, pady=(0, 30), sticky="ns")
+        text_area.grid_rowconfigure(0, weight=1)
+        text_area.grid_columnconfigure(0, weight=1)
+
+        # Se sobrar espaço na altura da janela, a área de texto ocupa esse
+        # espaço (em vez de deixar uma faixa vazia embaixo).
+        self.grid_rowconfigure(2, weight=1)
+
+        self.text = tk.Text(
+            text_area,
+            width=48,            # largura, em caracteres
+            height=16,           # altura mínima, em linhas
+            wrap="word",         # quebra de linha sem cortar palavras
+            font=SUBTITLE_FONT,
+            foreground=MUTED_TEXT_COLOR,
+            background=BG_COLOR,
+            relief="flat",
+            borderwidth=0,
+            highlightthickness=1,          # borda fina: mostra onde
+            highlightbackground="#D8D3C7",  # termina a área de rolagem
+            highlightcolor="#D8D3C7",
+            padx=12,
+            pady=10,
+            cursor="arrow",
         )
-        message.grid(row=2, column=1, padx=30, pady=(0, 30))
+        self.text.grid(row=0, column=0, sticky="nsew")
+
+        scrollbar = ttk.Scrollbar(
+            text_area, orient="vertical", command=self.text.yview
+        )
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.text.configure(yscrollcommand=scrollbar.set)
+
+        self.text.insert("1.0", credits_text)
+        # Trava o campo: dá para rolar e selecionar o texto, mas não editar.
+        self.text.configure(state="disabled")
 
         button_back = ttk.Button(
             self,
@@ -534,6 +570,11 @@ class CreditsPage(tk.Frame):
             command=lambda: controller.show_frame(StartPage),
         )
         button_back.grid(row=3, column=1, pady=10, ipadx=10)
+
+    def on_show(self):
+        """Chamado automaticamente pelo show_frame() sempre que a tela de
+        créditos aparece: volta a rolagem para o início do texto."""
+        self.text.yview_moveto(0)
 
 
 class TossPage(tk.Frame):
@@ -550,10 +591,12 @@ class TossPage(tk.Frame):
         title.configure(font=("Arial", 28, "bold"))
         title.grid(row=1, column=1, pady=(50, 10))
 
-        toss = ttk.Label(
+        # Guardado como atributo (self.prompt) para que a LocalTossPage, do
+        # modo 1 vs 1, consiga trocar esse texto pelo nome do jogador.
+        self.prompt = ttk.Label(
             self, text="Escolha cara ou coroa", style="Subtitle.TLabel"
         )
-        toss.grid(row=2, column=1, pady=(0, 20))
+        self.prompt.grid(row=2, column=1, pady=(0, 20))
 
         # "outcome", "nextstep" e os botões agora são guardados como
         # atributos (self.xxx) em vez de variáveis locais do __init__.
@@ -653,6 +696,79 @@ class TossPage(tk.Frame):
         self.nextstep.update()
         self.button_heads.update()
         self.button_tails.update()
+
+
+class LocalTossPage(TossPage):
+    """
+    Cara ou coroa do modo 1 vs 1 local.
+
+    É a mesma tela do modo contra a máquina (mesmos botões, mesma função
+    c4.cointoss), mas quem escolhe cara ou coroa é o Jogador 1, e o
+    resultado define qual dos dois jogadores começa a partida.
+    """
+
+    def __init__(self, window, controller):
+        TossPage.__init__(self, window, controller)
+
+        # No modo 1 vs 1 os dois resultados levam à mesma tela de
+        # tabuleiro; quem começa fica guardado em controller.local_first_player.
+        # Só o botão button_win é usado aqui (o button_lose nunca aparece).
+        self.button_win.configure(
+            command=lambda: controller.show_frame(LocalBoardPage)
+        )
+
+        # Nomes grandes quebram em mais de uma linha em vez de alargar a janela.
+        self.prompt.configure(wraplength=480, justify="center")
+        self.outcome.configure(wraplength=520, justify="center")
+        self.nextstep.configure(wraplength=520, justify="center")
+
+    def reset(self):
+        """Prepara um novo sorteio (como na TossPage) e atualiza o texto
+        com o nome do Jogador 1. Como o show_frame() chama este método toda
+        vez que a tela aparece, o nome sempre está atualizado."""
+        TossPage.reset(self)
+        self.prompt.configure(
+            text=f"{self.controller.player1_name}, escolha cara ou coroa"
+        )
+
+    def heads(self):
+        self.resolve_toss(1)
+
+    def tails(self):
+        self.resolve_toss(0)
+
+    def resolve_toss(self, call):
+        """
+        Faz o sorteio com o palpite do Jogador 1 (1 = cara, 0 = coroa),
+        trava os botões e mostra quem começa. Se o Jogador 1 acertar, ele
+        começa; se errar, quem começa é o Jogador 2.
+        """
+        won = c4.cointoss(call)
+
+        # Igual ao modo contra a máquina: o botão escolhido fica, o outro
+        # perde o texto, e nenhum dos dois responde a novos cliques.
+        if call == 1:
+            self.button_tails.configure(text="")
+        else:
+            self.button_heads.configure(text="")
+        self.button_heads.configure(command=donothing)
+        self.button_tails.configure(command=donothing)
+
+        name1 = self.controller.player1_name
+        name2 = self.controller.player2_name
+
+        if won:
+            first_player = 1
+            self.outcome.configure(text=f"{name1} ganhou o sorteio!")
+            first_name = name1
+        else:
+            first_player = 2
+            self.outcome.configure(text=f"{name1} perdeu o sorteio!")
+            first_name = name2
+
+        self.controller.local_first_player = first_player
+        self.nextstep.configure(text=f"{first_name} jogará primeiro")
+        self.button_win.grid(row=8, column=1, pady=20, ipadx=10)
 
 
 class BoardPageLose(tk.Frame):
@@ -1045,13 +1161,15 @@ class LocalBoardPage(BoardPageWin):
 
     def new_game(self):
         """
-        (Re)inicia a partida: tabuleiro vazio e vez do Jogador 1. É chamada
-        quando a tela aparece (via on_show) e no botão "Jogar de Novo".
-        Os nomes são lidos do controlador a cada partida, então sempre
-        refletem o que foi digitado na LocalPage.
+        (Re)inicia a partida: tabuleiro vazio e vez de quem ganhou o cara
+        ou coroa (controller.local_first_player). É chamada quando a tela
+        aparece (via on_show) e no botão "Jogar de Novo" — que mantém quem
+        começou, igual ao modo contra a máquina. Os nomes também são lidos
+        do controlador a cada partida, então sempre refletem o que foi
+        digitado na LocalPage.
         """
         self.board = c4.makearrayboard()
-        self.current_player = 1
+        self.current_player = self.controller.local_first_player
         self.redraw_board()
 
         for i, button in enumerate(self.buttons):
