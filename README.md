@@ -2,16 +2,27 @@
 
 > Jogo Connect 4 desenvolvido em Python 3 com interface gráfica Tkinter.
 
-O projeto possui uma partida contra o computador, sorteio para definir quem
-começa e tabuleiro desenhado com Matplotlib.
+O projeto permite jogar contra o computador ou no modo multiplayer local (1 vs 1 no mesmo dispositivo), conta com sorteio de cara ou coroa para definir quem começa, tela de regras com demonstração animada e tabuleiro desenhado com Matplotlib.
 
 ## Funcionalidades atuais
 
-- Sorteio de cara ou coroa para definir quem começa.
-- Jogadas do jogador e do computador em um tabuleiro de 6 por 7.
-- Computador capaz de tentar vencer e bloquear jogadas do jogador.
-- Identificação de vitória, derrota e empate.
-- Exibição do tabuleiro integrado à janela Tkinter.
+- **Menu inicial modernizado** com logo personalizada e acesso rápido a Como Jogar, Jogar e Créditos.
+- **Dois modos de partida**:
+  - **Contra a Máquina:** partida contra o computador, que tenta vencer e bloquear sequências do jogador.
+  - **Multiplayer local (1 vs 1):** dois jogadores humanos no mesmo dispositivo, com personalização de nomes, turnos alternados e indicação visual de quem é a vez.
+- **Sorteio de cara ou coroa** antes da partida em ambos os modos para definir quem joga primeiro.
+- **Tela "Como Jogar"** com explicação das regras em português e demonstração em GIF animado.
+- **Fim de partida completo:** identificação de vitória, derrota e empate, destaque das 4 peças vencedoras no tabuleiro e opções de **Jogar de Novo** ou **Voltar ao Menu**.
+- **Tela de Créditos** com informações sobre o projeto original, a equipe do Projeto Integrador e as melhorias realizadas.
+
+## Como jogar
+
+1. Na tela inicial, clique em **Como Jogar** para ver as regras ou em **Jogar** para escolher o modo de partida.
+2. Em **Escolha o Modo de Jogo**, selecione:
+   - **Jogar contra a Máquina:** realiza o cara ou coroa e inicia a partida contra o computador.
+   - **1 vs 1:** informe o nome do Jogador 1 (peças vermelhas) e do Jogador 2 (peças amarelas) — ou deixe em branco para usar os nomes padrão —, realize o sorteio de cara ou coroa e jogue alternadamente.
+3. Durante a partida, clique nos botões de **a** a **g** abaixo do tabuleiro para soltar uma peça na coluna desejada.
+4. Ao término da partida, clique em **Jogar de Novo** para reiniciar ou **Voltar ao Menu** para trocar o modo de jogo.
 
 ## Requisitos
 
@@ -19,6 +30,7 @@ começa e tabuleiro desenhado com Matplotlib.
 - Tkinter instalado no sistema.
 - NumPy.
 - Matplotlib.
+- Pillow.
 
 No Linux baseado em Debian ou Ubuntu, instale o Python, o suporte ao Tkinter,
 o ambiente virtual e o pip com:
@@ -56,7 +68,7 @@ python -m pip install -r requirements.txt
 Para confirmar a instalação:
 
 ```bash
-python -c "import tkinter, numpy, matplotlib; print('Dependencias instaladas com sucesso')"
+python -c "import tkinter, numpy, matplotlib, PIL; print('Dependencias instaladas com sucesso')"
 ```
 
 ## Execução

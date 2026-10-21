@@ -217,8 +217,6 @@ class StartPage(tk.Frame):
 
         title = ttk.Label(self, image=self.titulo_img, background=BG_COLOR)
         title.grid(row=1, column=1, pady=(60, 6))
-        title = ttk.Label(self, image=self.titulo_img, background=BG_COLOR)
-        title.grid(row=1, column=1, pady=(60, 6))
 
         subtitle = ttk.Label(
             self,

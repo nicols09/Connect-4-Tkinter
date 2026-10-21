@@ -373,15 +373,12 @@ def plotgraphicalboard(board):
     # Faz o mesmo destaque para as peças vencedoras do jogador.
     a.plot(userwonx, userwony, marker='o', markersize=50,
            linestyle='-', linewidth=20, color='red')
-<<<<<<< HEAD
 
     # Desenha as linhas de grade preta, para ficar parecido com um tabuleiro de verdade.
     #
     # Observação: em versões antigas do matplotlib esse parâmetro se chamava
     # "b=True". Em versões mais novas (a partir da 3.5), esse nome foi
     # removido e substituído por "visible=True", por isso usamos o nome novo aqui.
-=======
->>>>>>> 001939829ad2e8fcce1909a01922410a2b5d835b
     a.grid(visible=True, which='major', color='black', linestyle='-')
 
     return f
