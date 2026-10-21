@@ -128,9 +128,15 @@ O projeto também serviu para praticar a criação de aplicações Python com
 múltiplas telas usando Tkinter e a integração de gráficos do Matplotlib em uma
 janela Tkinter.
 
-## Captura de tela
+## Capturas de tela
 
-<img width="300" alt="game_screenshot" src="https://user-images.githubusercontent.com/40459599/53034902-2ac24d80-346c-11e9-94d3-85b3db84ad71.png">
+| Tela inicial | Escolha do modo de jogo | Cadastro de jogadores (1 vs 1) |
+| :---: | :---: | :---: |
+| <img width="240" alt="Tela inicial" src="docs/screenshots/tela-inicial.png"> | <img width="240" alt="Escolha do modo de jogo" src="docs/screenshots/modo-de-jogo.png"> | <img width="240" alt="Cadastro de jogadores 1 vs 1" src="docs/screenshots/jogadores-1v1.png"> |
+
+| Partida 1 vs 1 em andamento | Vitória com peças destacadas | Demonstração |
+| :---: | :---: | :---: |
+| <img width="240" alt="Partida 1 vs 1 em andamento" src="docs/screenshots/partida-1v1.png"> | <img width="240" alt="Vitória no modo 1 vs 1" src="docs/screenshots/vitoria-1v1.png"> | <img width="240" alt="Demonstração de partida" src="vd.gif"> |
 
 ## Licença
 

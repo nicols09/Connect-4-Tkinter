@@ -123,7 +123,7 @@ Foco:
 - [x] Registrar funcionalidades adicionadas
 - [x] Explicar como utilizar cada funcionalidade
 - [x] Atualizar exemplos
-- [ ] Atualizar screenshots, caso necessário
+- [x] Atualizar screenshots, caso necessário
 
 ---
 
