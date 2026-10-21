@@ -85,6 +85,15 @@ Para sair do ambiente virtual depois de fechar o jogo:
 deactivate
 ```
 
+## Testes
+
+As regras do jogo (`connect4module.py`) possuem testes automatizados. Com o
+ambiente virtual ativo, execute na raiz do projeto:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 ## Solução de problemas
 
 ### `No module named pip`

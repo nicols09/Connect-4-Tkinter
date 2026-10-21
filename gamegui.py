@@ -1,7 +1,5 @@
-import platform
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
 import tkinter as tk
 from tkinter import ttk
 import connect4module as c4
@@ -769,10 +767,16 @@ class LocalTossPage(TossPage):
         self.button_win.grid(row=8, column=1, pady=20, ipadx=10)
 
 
-class BoardPageLose(tk.Frame):
+class BaseBoardPage(tk.Frame):
     """
-    Board Page, contains main game
-    If player lost toss
+    Base comum de todas as telas de tabuleiro (contra a máquina e 1 vs 1).
+
+    Monta a interface compartilhada — título, tabuleiro, botões de coluna
+    (a-g), mensagem de status e os botões "Jogar de Novo" / "Voltar ao
+    Menu" — e oferece os métodos de apoio usados durante a partida.
+
+    Cada subclasse só implementa a própria regra de turno em new_game() e
+    choose_column().
     """
 
     def __init__(self, window, controller):
@@ -795,11 +799,11 @@ class BoardPageLose(tk.Frame):
         title.configure(font=("Arial", 26, "bold"))
         title.grid(row=1, column=1, pady=(20, 0))
 
-        # "statement" e os botões de coluna agora são guardados como
-        # atributos (self.xxx), e não mais variáveis locais do __init__.
-        # Isso é necessário para que o botão de "Reiniciar" consiga
-        # encontrá-los e reconfigurá-los depois, mesmo esse __init__ só
-        # rodando uma única vez durante toda a vida do aplicativo.
+        # "statement" e os botões de coluna são guardados como atributos
+        # (self.xxx), e não como variáveis locais do __init__. Isso é
+        # necessário para que o botão de "Reiniciar" consiga encontrá-los e
+        # reconfigurá-los depois, mesmo esse __init__ só rodando uma única
+        # vez durante toda a vida do aplicativo.
 
         self.statement = ttk.Label(
             self, text="Escolha uma coluna", style="Statement.TLabel"
@@ -840,8 +844,8 @@ class BoardPageLose(tk.Frame):
 
         # Botão de reiniciar a partida. Criado aqui junto com o resto da
         # tela, mas só fica visível (via .grid) depois que a partida atual
-        # termina — veja end_game() e new_game() mais abaixo.
-        
+        # termina — veja end_game() e new_game().
+
         self.restart_button = ttk.Button(
             self, text="Jogar de Novo", style="Primary.TButton",
             command=self.new_game,
@@ -850,6 +854,10 @@ class BoardPageLose(tk.Frame):
             self, text="Voltar ao Menu", style="Secondary.TButton",
             command=lambda: controller.show_frame(PlayMenuPage),
         )
+
+        # Desenho do tabuleiro atualmente na tela. Guardado para que
+        # redraw_board() possa descartar o anterior a cada jogada.
+        self.canvas = None
 
         # Começa a primeira partida desta tela assim que ela é criada.
         self.new_game()
@@ -861,6 +869,72 @@ class BoardPageLose(tk.Frame):
         e ganhou/perdeu o mesmo sorteio de novo).
         """
         self.new_game()
+
+    def new_game(self):
+        """(Re)inicia a partida do zero. Implementado nas subclasses."""
+        raise NotImplementedError
+
+    def choose_column(self, column):
+        """Trata o clique em um botão de coluna. Implementado nas subclasses."""
+        raise NotImplementedError
+
+    def redraw_board(self):
+        """
+        Desenha (ou redesenha) o tabuleiro atual na tela.
+
+        O desenho anterior é destruído depois que o novo é posicionado.
+        Sem isso, cada jogada empilharia mais um widget na mesma célula
+        do grid, acumulando memória ao longo das partidas.
+        """
+        graph = c4.plotgraphicalboard(self.board)
+        old_canvas = self.canvas
+
+        self.canvas = FigureCanvasTkAgg(graph, self)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().grid(row=2, column=1)
+
+        if old_canvas is not None:
+            old_canvas.get_tk_widget().destroy()
+
+    def enable_columns(self):
+        """Liga os botões de coluna à jogada desta tela."""
+        for i, button in enumerate(self.buttons):
+            button.configure(command=lambda col=i: self.choose_column(col))
+
+    def disable_columns(self):
+        """Faz os botões de coluna pararem de responder (fim de partida)."""
+        for button in self.buttons:
+            button.configure(command=donothing)
+
+    def end_game(self, message):
+        """
+        Usada para vitória, derrota e empate: desativa os botões de
+        coluna, mostra a mensagem final e exibe os botões de
+        reiniciar/voltar ao menu.
+        """
+        self.disable_columns()
+        self.statement.configure(text=message)
+        self.show_end_buttons()
+
+    def show_end_buttons(self):
+        self.restart_button.grid(row=9, column=1, pady=(24, 4), ipadx=6)
+        self.menu_button.grid(row=10, column=1, pady=(0, 10))
+
+    def hide_end_buttons(self):
+        self.restart_button.grid_remove()
+        self.menu_button.grid_remove()
+
+
+class ComputerBoardPage(BaseBoardPage):
+    """
+    Tabuleiro do modo contra a máquina.
+
+    O jogador usa as peças vermelhas e o computador as amarelas. Depois de
+    cada jogada válida do jogador, o computador responde imediatamente.
+    O atributo computer_starts define quem faz a primeira jogada.
+    """
+
+    computer_starts = False
 
     def new_game(self):
         """
@@ -872,34 +946,23 @@ class BoardPageLose(tk.Frame):
         """
         self.board = c4.makearrayboard()
 
-        # Como o jogador perdeu o sorteio nesta tela, o computador sempre
-        # joga primeiro.
+        if self.computer_starts:
+            self.computer_move()
+
+        self.redraw_board()
+        self.enable_columns()
+        self.statement.configure(text="Escolha uma coluna")
+        self.hide_end_buttons()
+
+    def computer_move(self):
+        """Decide e executa a jogada do computador."""
         computercolumn = c4.decidecomputermove(self.board)
-        while c4.checkifvalid(self.board, computercolumn) != True:
+        while not c4.checkifvalid(self.board, computercolumn):
             computercolumn = c4.decidecomputermove(self.board)
         c4.docomputermove(self.board, computercolumn)
 
-        self.redraw_board()
-
-        for i, button in enumerate(self.buttons):
-            button.configure(command=lambda col=i: self.choose_column(col))
-            button.update()
-
-        self.statement.configure(text="Escolha uma coluna")
-        self.statement.update()
-
-        self.restart_button.grid_remove()
-        self.menu_button.grid_remove()
-
-    def redraw_board(self):
-        """Desenha (ou redesenha) o tabuleiro atual na tela."""
-        graph = c4.plotgraphicalboard(self.board)
-        canvas = FigureCanvasTkAgg(graph, self)
-        canvas.draw()
-        canvas.get_tk_widget().grid(row=2, column=1)
-
     def choose_column(self, column):
-        if c4.checkifvalid(self.board, column) == True:
+        if c4.checkifvalid(self.board, column):
             c4.dousermove(self.board, column)
             self.continuegame()
 
@@ -909,240 +972,55 @@ class BoardPageLose(tk.Frame):
         atual (checkgamestate), faz o computador jogar se a partida
         continuar, e atualiza a tela conforme o resultado final.
         """
-
         gamestate = c4.checkgamestate(self.board)
 
-        if gamestate == 0:
-            computercolumn = c4.decidecomputermove(self.board)
-            while c4.checkifvalid(self.board, computercolumn) != True:
-                computercolumn = c4.decidecomputermove(self.board)
-            c4.docomputermove(self.board, computercolumn)
+        if gamestate == c4.GAME_ONGOING:
+            self.computer_move()
             gamestate = c4.checkgamestate(self.board)
-            self.redraw_board()
 
-        if gamestate == 1:
-            self.redraw_board()
-            self.end_game("Você Venceu!")
-            print("You win")
-
-        if gamestate == 2:
-            self.end_game("Você Perdeu!")
-            print("You lose")
-
-        if gamestate == 3:
-            self.redraw_board()
-            self.statement.configure(text="Empate!")
-            self.statement.update()
-            self.show_end_buttons()
-            print("You draw")
-
-    def end_game(self, message):
-        """
-        Reaproveitada tanto para vitória quanto para derrota: desativa
-        os botões de coluna, mostra a mensagem final e exibe os botões
-        de reiniciar/voltar ao menu.
-        """
-        for button in self.buttons:
-            button.configure(command=donothing)
-            button.update()
-        self.statement.configure(text=message)
-        self.statement.update()
-        self.show_end_buttons()
-
-    def show_end_buttons(self):
-        self.restart_button.grid(row=9, column=1, pady=(24, 4), ipadx=6)
-        self.menu_button.grid(row=10, column=1, pady=(0, 10))
-
-
-class BoardPageWin(tk.Frame):
-    """
-    Board Page, contains main game
-    If player won toss
-    """
-
-    def __init__(self, window, controller):
-
-        ttk.Frame.__init__(self, window, style="TFrame")
-        self.controller = controller
-
-    # Deixa as colunas das laterais ocuparem o espaço que sobrar
-    # para manter o conteúdo no meio da tela
-
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(2, weight=1)
-
-    # Faz a mesma coisa com as linhas de cima e de baixo
-
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_rowconfigure(11, weight=1)
-
-        title = ttk.Label(self, text="Connect4", style="Title.TLabel")
-        title.configure(font=("Arial", 26, "bold"))
-        title.grid(row=1, column=1, pady=(20, 0))
-
-
-        self.statement = ttk.Label(
-            self, text="Escolha uma coluna", style="Statement.TLabel"
-        )
-        self.statement.grid(row=4, column=1, pady=(60, 0))
-
-     # Cria uma área para colocar os botões embaixo do tabuleiro
-
-        self.button_row = ttk.Frame(self, width=350, height=40)
-        self.button_row.grid(row=3, column=1, pady=(4, 0))
-
-        # Lista para guardar os botões
-        
-        self.buttons = []
-
-        # Cria um botão para cada coluna do jogo
-
-        for i, letra in enumerate("abcdefg"):
-            btn = ttk.Button(
-                self.button_row,
-                text=letra,
-                style="Column.TButton",
-                width=2,
-                command=lambda col=i: self.choose_column(col)
-            )
-
-            # Coloca os botões em suas posições
-
-            btn.place(
-                relx=0.01 + 0.98 * (i + 1) / 8,
-                rely=0,
-                anchor="n"
-            )
-
-            # Adiciona o botão na lista
-
-            self.buttons.append(btn)
-
-        self.restart_button = ttk.Button(
-            self, text="Jogar de Novo", style="Primary.TButton",
-            command=self.new_game,
-        )
-        self.menu_button = ttk.Button(
-            self, text="Voltar ao Menu", style="Secondary.TButton",
-            command=lambda: controller.show_frame(PlayMenuPage),
-        )
-
-        # Começa a primeira partida desta tela assim que ela é criada.
-        self.new_game()
-
-    def on_show(self):
-        """Chamado automaticamente pelo show_frame() sempre que o
-        usuário navega até esta tela — garante uma partida nova, mesmo
-        se a tela já tiver sido usada antes (ex: jogou, voltou ao menu
-        e ganhou/perdeu o mesmo sorteio de novo).
-        """
-        self.new_game()
-
-    def new_game(self):
-        """
-        (Re)inicia a partida do zero, nesta mesma tela.
-
-        Igual à versão de BoardPageLose, mas aqui o tabuleiro começa
-        totalmente vazio (sem jogada do computador), já que o jogador
-        ganhou o sorteio e joga primeiro.
-        """
-        self.board = c4.makearrayboard()
+        # O desenho vem depois da checagem de propósito: quando alguém
+        # vence, checkgamestate marca as 4 peças vencedoras no tabuleiro, e
+        # é essa marcação que faz o desenho destacá-las com a linha grossa.
         self.redraw_board()
 
-        for i, button in enumerate(self.buttons):
-            button.configure(command=lambda col=i: self.choose_column(col))
-            button.update()
-
-        self.statement.configure(text="Escolha uma coluna")
-        self.statement.update()
-
-        self.restart_button.grid_remove()
-        self.menu_button.grid_remove()
-
-    def redraw_board(self):
-        """Desenha (ou redesenha) o tabuleiro atual na tela."""
-        graph = c4.plotgraphicalboard(self.board)
-        canvas = FigureCanvasTkAgg(graph, self)
-        canvas.draw()
-        canvas.get_tk_widget().grid(row=2, column=1)
-
-    def choose_column(self, column):
-        if c4.checkifvalid(self.board, column) == True:
-            c4.dousermove(self.board, column)
-            self.continuegame()
-
-    def continuegame(self):
-        """
-        Função principal do jogo nesta tela. Funciona exatamente da
-        mesma forma explicada em BoardPageLose.continuegame.
-        """
-
-        gamestate = c4.checkgamestate(self.board)
-
-        if gamestate == 0:
-            computercolumn = c4.decidecomputermove(self.board)
-            while c4.checkifvalid(self.board, computercolumn) != True:
-                computercolumn = c4.decidecomputermove(self.board)
-            c4.docomputermove(self.board, computercolumn)
-            gamestate = c4.checkgamestate(self.board)
-            self.redraw_board()
-
-        if gamestate == 1:
-            self.redraw_board()
+        if gamestate == c4.PLAYER1_WINS:
             self.end_game("Você Venceu!")
-            print("You win")
-
-        if gamestate == 2:
+        elif gamestate == c4.PLAYER2_WINS:
             self.end_game("Você Perdeu!")
-            print("You lose")
-
-        if gamestate == 3:
-            self.redraw_board()
-            self.statement.configure(text="Empate!")
-            self.statement.update()
-            self.show_end_buttons()
-            print("You draw")
-
-    def end_game(self, message):
-        """
-        Reaproveitada tanto para vitória quanto para derrota: desativa
-        os botões de coluna, mostra a mensagem final e exibe os botões
-        de reiniciar/voltar ao menu.
-        """
-        for button in self.buttons:
-            button.configure(command=donothing)
-            button.update()
-        self.statement.configure(text=message)
-        self.statement.update()
-        self.show_end_buttons()
-
-    def show_end_buttons(self):
-        self.restart_button.grid(row=9, column=1, pady=(24, 4), ipadx=6)
-        self.menu_button.grid(row=10, column=1, pady=(0, 10))
+        elif gamestate == c4.DRAW:
+            self.end_game("Empate!")
 
 
-class LocalBoardPage(BoardPageWin):
+class BoardPageWin(ComputerBoardPage):
+    """
+    Board Page, contains main game
+    If player won toss: o tabuleiro começa vazio e o jogador joga primeiro.
+    """
+
+    computer_starts = False
+
+
+class BoardPageLose(ComputerBoardPage):
+    """
+    Board Page, contains main game
+    If player lost toss: o computador faz a primeira jogada.
+    """
+
+    computer_starts = True
+
+
+class LocalBoardPage(BaseBoardPage):
     """
     Tabuleiro do modo 1 vs 1 local.
 
-    Reaproveita toda a interface da BoardPageWin (título, tabuleiro,
-    botões de coluna, "Jogar de Novo" e "Voltar ao Menu") e só troca a
-    lógica de turno: em vez de o computador responder depois da jogada,
-    os dois jogadores humanos se alternam.
-
-    A lógica do jogo continua a mesma do modo contra a máquina:
-        - o Jogador 1 usa as peças vermelhas (valor 1 no tabuleiro), jogadas
-          com c4.dousermove;
-        - o Jogador 2 usa as peças amarelas (valor 5 no tabuleiro), jogadas
-          com c4.docomputermove (apesar do nome, essa função só coloca a
-          peça de valor 5 na coluna, então serve para qualquer segundo
-          jogador);
-        - c4.checkgamestate continua dizendo o resultado: 1 = vermelhas
-          venceram, 2 = amarelas venceram, 3 = empate, 0 = segue o jogo.
+    Reaproveita toda a interface da BaseBoardPage (título, tabuleiro,
+    botões de coluna, "Jogar de Novo" e "Voltar ao Menu"). A regra de
+    turno, a validação das jogadas e o resultado ficam em c4.LocalMatch,
+    no módulo de regras; esta tela só exibe o que a partida informa.
     """
 
     def __init__(self, window, controller):
-        BoardPageWin.__init__(self, window, controller)
+        BaseBoardPage.__init__(self, window, controller)
 
         # Nomes grandes quebram em duas linhas em vez de alargar a janela.
         self.statement.configure(wraplength=380, justify="center")
@@ -1166,61 +1044,40 @@ class LocalBoardPage(BoardPageWin):
         do controlador a cada partida, então sempre refletem o que foi
         digitado na LocalPage.
         """
-        self.board = c4.makearrayboard()
-        self.current_player = self.controller.local_first_player
+        self.match = c4.LocalMatch(self.controller.local_first_player)
+        # Mesmo objeto da partida: as jogadas alteram o tabuleiro no lugar,
+        # então redraw_board() sempre desenha o estado atual.
+        self.board = self.match.board
+
         self.redraw_board()
-
-        for i, button in enumerate(self.buttons):
-            button.configure(command=lambda col=i: self.choose_column(col))
-
+        self.enable_columns()
         self.show_turn()
-
-        self.restart_button.grid_remove()
-        self.menu_button.grid_remove()
+        self.hide_end_buttons()
 
     def show_turn(self):
         """Mostra de quem é a vez, na cor das peças desse jogador."""
         self.statement.configure(
-            text=f"Vez de {self.player_name(self.current_player)}",
-            foreground=self.player_color(self.current_player),
+            text=f"Vez de {self.player_name(self.match.current_player)}",
+            foreground=self.player_color(self.match.current_player),
         )
 
     def choose_column(self, column):
-        if c4.checkifvalid(self.board, column) != True:
+        """
+        Envia a jogada para a partida. Jogadas recusadas (coluna cheia,
+        partida encerrada) não alteram o tabuleiro nem trocam o turno.
+        """
+        if self.match.play(column) != c4.MOVE_OK:
             return
 
-        if self.current_player == 1:
-            c4.dousermove(self.board, column)
-        else:
-            c4.docomputermove(self.board, column)
-
-        self.continuegame()
-
-    def continuegame(self):
-        """
-        Chamada depois de cada jogada: confere o resultado e, se a partida
-        continua, passa a vez para o outro jogador.
-        """
-        gamestate = c4.checkgamestate(self.board)
-
-        # O desenho vem depois da checagem de propósito: quando alguém
-        # vence, checkgamestate marca as 4 peças vencedoras no tabuleiro, e
-        # é essa marcação que faz o desenho destacá-las com a linha grossa.
         self.redraw_board()
 
-        if gamestate == 0:
-            if self.current_player == 1:
-                self.current_player = 2
-            else:
-                self.current_player = 1
+        if not self.match.finished:
             self.show_turn()
-
-        elif gamestate == 3:
+        elif self.match.state == c4.DRAW:
             self.end_game("Empate!")
             self.statement.configure(foreground=TEXT_COLOR)
-
         else:
-            winner = 1 if gamestate == 1 else 2
+            winner = self.match.winner
             self.end_game(f"{self.player_name(winner)} venceu!")
             self.statement.configure(foreground=self.player_color(winner))
 

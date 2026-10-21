@@ -253,8 +253,13 @@ Foco:
 - [x] Controlar o jogador da vez
 - [x] Validar jogadas e impedir jogadas fora do turno
 - [x] Preservar a verificação de vitória e empate
-- [ ] Criar testes para as regras do modo 1x1
+- [x] Criar testes para as regras do modo 1x1
 - [x] Integrar o novo modo à interface
+
+**Implementação:**
+- `connect4module.makemove` é a jogada genérica; `connect4module.LocalMatch`
+  controla turno, validação e resultado do modo 1x1.
+- Testes em `tests/test_connect4module.py`.
 
 **Critério de conclusão:**
 - Dois jogadores conseguem concluir uma partida local, com turnos alternados,

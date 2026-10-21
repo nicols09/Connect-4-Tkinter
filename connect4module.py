@@ -1,6 +1,4 @@
-import string
 import matplotlib
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import numpy as np
 
@@ -10,6 +8,35 @@ import numpy as np
 # uma janela feita com Tkinter (a biblioteca de interface gráfica do Python).
 # Sem essa linha, o gráfico do tabuleiro não apareceria corretamente na janela.
 matplotlib.use("TkAgg")
+
+# ---------------------------------------------------------------------------
+# Constantes do jogo
+# ---------------------------------------------------------------------------
+
+# Dimensões do tabuleiro.
+ROWS = 6
+COLUMNS = 7
+
+# Valor guardado em cada casa da matriz. Os números 1 e 5 foram mantidos
+# porque checkgamestate e decidecomputermove dependem deles para somar as
+# sequências (4 = vitória das vermelhas, 20 = vitória das amarelas).
+EMPTY = 0
+PLAYER1_PIECE = 1   # peças vermelhas: jogador humano / Jogador 1
+PLAYER2_PIECE = 5   # peças amarelas: computador / Jogador 2
+
+# Valores devolvidos por checkgamestate.
+GAME_ONGOING = 0
+PLAYER1_WINS = 1
+PLAYER2_WINS = 2
+DRAW = 3
+
+# Resultados possíveis de LocalMatch.play, para a interface saber
+# exatamente por que uma jogada foi aceita ou recusada.
+MOVE_OK = "ok"
+MOVE_INVALID_COLUMN = "coluna_inexistente"
+MOVE_COLUMN_FULL = "coluna_cheia"
+MOVE_WRONG_TURN = "fora_do_turno"
+MOVE_GAME_OVER = "partida_encerrada"
 
 
 def makegraphicalboard():
@@ -66,6 +93,12 @@ def checkifvalid(board, column):
     houver pelo menos uma casa vazia nessa coluna, e False se a coluna
     já estiver completamente cheia.
     """
+    # Coluna fora do tabuleiro nunca é uma jogada válida. Sem essa checagem,
+    # um índice negativo (ex: -1) seria aceito pelo numpy e apontaria para
+    # a última coluna, escondendo o erro.
+    if not 0 <= column < COLUMNS:
+        return False
+
     # Começa assumindo que a coluna está cheia (jogada inválida).
     valid = False
 
@@ -78,25 +111,33 @@ def checkifvalid(board, column):
     return valid
 
 
-def dousermove(board, column):
+def makemove(board, column, piece):
     """
-    Executa a jogada do jogador humano em uma coluna escolhida.
-    """
-    # Essa variável serve para garantir que a peça seja colocada uma única
-    # vez, na primeira casa vazia encontrada, e não em todas as casas vazias.
-    placed = False
+    Solta uma peça qualquer (PLAYER1_PIECE ou PLAYER2_PIECE) na coluna
+    escolhida. É a operação de jogada genérica, que não depende de quem
+    está jogando nem da decisão do computador.
 
+    Não valida a jogada: quem chama deve conferir antes com checkifvalid.
+    """
     # As peças de Connect 4 "caem" por gravidade, então precisamos procurar
     # a partir da linha mais baixa (linha 5) até a mais alta (linha 0).
     # O range(5, -1, -1) faz exatamente isso: 5, 4, 3, 2, 1, 0.
     for i in range(5, -1, -1):
         # Assim que acha a primeira casa vazia (valor 0) de baixo para cima,
-        # e ainda não colocou nenhuma peça nesta jogada, coloca a peça ali.
-        if ((board[i][column] == 0) and (placed == False)):
-            board[i][column] = 1  # O número 1 representa a peça do jogador humano
-            placed = True
+        # coloca a peça ali e encerra, para não preencher as outras casas.
+        if board[i][column] == EMPTY:
+            board[i][column] = piece
+            break
 
     return board
+
+
+def dousermove(board, column):
+    """
+    Executa a jogada do jogador humano (peça vermelha, valor 1) em uma
+    coluna escolhida.
+    """
+    return makemove(board, column, PLAYER1_PIECE)
 
 
 def checkgamestate(board):
@@ -652,17 +693,84 @@ def docomputermove(board, column):
     """
     Executa a jogada do computador em uma coluna escolhida.
 
-    Essa função funciona de forma quase idêntica à dousermove: ela também
-    procura a primeira casa vazia de baixo para cima e coloca a peça ali.
-    A única diferença é o número usado para representar a peça.
+    Essa função funciona de forma quase idêntica à dousermove: as duas
+    usam makemove. A única diferença é o número usado para representar a
+    peça (5, amarela). Também é usada pelo Jogador 2 no modo 1 vs 1.
     """
-    placed = False
+    return makemove(board, column, PLAYER2_PIECE)
 
-    # Mesma lógica de "gravidade" usada na jogada do jogador: procura de
-    # baixo para cima até achar a primeira casa vazia.
-    for i in range(5, -1, -1):
-        if ((board[i][column] == 0) and (placed == False)):
-            board[i][column] = 5  # O número 5 representa a peça do computador
-            placed = True
 
-    return board
+class LocalMatch:
+    """
+    Partida 1 vs 1 local: dois jogadores humanos no mesmo dispositivo.
+
+    Concentra no módulo de regras tudo o que a interface precisa para o
+    modo 1 vs 1, sem depender da lógica do computador:
+
+    - guarda o tabuleiro e de quem é a vez (1 ou 2);
+    - valida cada jogada (coluna existente, coluna com espaço, turno certo,
+      partida ainda em andamento);
+    - alterna o turno só quando a jogada é aceita e a partida continua;
+    - informa o estado da partida e o vencedor.
+
+    O Jogador 1 usa as peças vermelhas (valor 1) e o Jogador 2 as amarelas
+    (valor 5), então checkgamestate e plotgraphicalboard continuam
+    funcionando sem nenhuma alteração.
+    """
+
+    PIECES = {1: PLAYER1_PIECE, 2: PLAYER2_PIECE}
+
+    def __init__(self, first_player=1):
+        if first_player not in self.PIECES:
+            raise ValueError("first_player deve ser 1 ou 2")
+
+        self.board = makearrayboard()
+        self.current_player = first_player
+        self.state = GAME_ONGOING
+
+    @property
+    def finished(self):
+        """True quando alguém venceu ou deu empate."""
+        return self.state != GAME_ONGOING
+
+    @property
+    def winner(self):
+        """Número do jogador vencedor (1 ou 2), ou None se não houver."""
+        if self.state == PLAYER1_WINS:
+            return 1
+        if self.state == PLAYER2_WINS:
+            return 2
+        return None
+
+    def play(self, column, player=None):
+        """
+        Tenta jogar na coluna informada pelo jogador da vez.
+
+        Se `player` for informado, a jogada só é aceita quando for o turno
+        dele. Uma jogada recusada não altera o tabuleiro nem troca o turno.
+
+        Devolve uma das constantes MOVE_*:
+            MOVE_OK              -> jogada feita
+            MOVE_GAME_OVER       -> a partida já terminou
+            MOVE_WRONG_TURN      -> não é a vez desse jogador
+            MOVE_INVALID_COLUMN  -> a coluna não existe
+            MOVE_COLUMN_FULL     -> a coluna está cheia
+        """
+        if self.finished:
+            return MOVE_GAME_OVER
+        if player is not None and player != self.current_player:
+            return MOVE_WRONG_TURN
+        if not 0 <= column < COLUMNS:
+            return MOVE_INVALID_COLUMN
+        if not checkifvalid(self.board, column):
+            return MOVE_COLUMN_FULL
+
+        makemove(self.board, column, self.PIECES[self.current_player])
+        self.state = checkgamestate(self.board)
+
+        # O turno só passa para o outro jogador se a partida continuar;
+        # assim, ao final, current_player indica quem fez a última jogada.
+        if self.state == GAME_ONGOING:
+            self.current_player = 2 if self.current_player == 1 else 1
+
+        return MOVE_OK
