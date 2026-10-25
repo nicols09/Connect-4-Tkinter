@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 import connect4module as c4
 import os
+import math
 from PIL import Image, ImageTk, ImageSequence
 
 matplotlib.use("TkAgg")
@@ -34,6 +35,13 @@ STATEMENT_FONT = ("Arial", 22, "bold")
 BODY_FONT = ("Segoe UI", 13)
 BUTTON_FONT = ("Segoe UI", 13, "bold")
 COLUMN_BUTTON_FONT = ("Segoe UI", 12, "bold")
+
+# Animação da moeda do cara ou coroa
+COIN_SIZE = 170      # tamanho da moeda em repouso (px, quadrada)
+COIN_LIFT = 60       # quanto a moeda sobe durante o arremesso (px)
+COIN_TURNS = 3       # voltas completas que a moeda dá antes de parar
+COIN_FRAMES = 45     # quantidade de quadros da animação
+COIN_FRAME_MS = 30   # tempo entre os quadros (ms): 45 x 30 ms = ~1,35 s
 
 
 def setup_styles(root):
@@ -511,7 +519,9 @@ class CreditsPage(tk.Frame):
             "• Centralização do tabuleiro\n"
             "• Criação de uma logo do Connect4 na tela inicial do "
             "programa\n"
-            "• Criação do modo 1v1 local"
+            "• Criação do modo 1v1 local\n"
+            "• Adição de uma moeda para ser mostrada no sorteio do "
+            "cara ou coroa"
         )
 
         # Área de rolagem: em vez de um Label (que cresce junto com o texto
@@ -573,6 +583,142 @@ class CreditsPage(tk.Frame):
         self.text.yview_moveto(0)
 
 
+_coin_faces_cache = {}
+
+
+def load_coin_faces():
+    """
+    Carrega as imagens Cara.png e Coroa.png (que ficam na mesma pasta do
+    gamegui.py) já no tamanho da moeda. O resultado fica guardado em
+    cache, então as imagens só são lidas do disco uma vez, mesmo que mais
+    de uma tela use a moeda (TossPage e LocalTossPage).
+
+    As imagens são PNGs com fundo transparente, para a moeda se misturar
+    com a cor de fundo do jogo.
+    """
+    if "faces" not in _coin_faces_cache:
+        pasta = os.path.dirname(__file__)
+        faces = []
+        for nome in ("Cara.png", "Coroa.png"):
+            imagem = Image.open(os.path.join(pasta, nome)).convert("RGBA")
+            faces.append(imagem.resize((COIN_SIZE, COIN_SIZE), Image.LANCZOS))
+        _coin_faces_cache["faces"] = tuple(faces)
+    return _coin_faces_cache["faces"]
+
+
+class CoinWidget(ttk.Label):
+    """
+    Moeda animada do cara ou coroa.
+
+    Em repouso mostra a cara. Em spin(), a moeda é arremessada para cima e
+    gira até parar na face sorteada.
+
+    Como o giro funciona: não existe um GIF pronto. A cada quadro, o
+    código calcula o ângulo da moeda e desenha a imagem com a largura
+    multiplicada por |cos(ângulo)| — assim ela "afina" quando está de
+    lado, como uma moeda girando em torno de um eixo vertical. Quando o
+    cosseno fica negativo, é o verso que está virado para a frente, então
+    a imagem é trocada de Cara para Coroa (e vice-versa).
+    """
+
+    def __init__(self, master):
+        ttk.Label.__init__(self, master, style="TLabel")
+        self._after_id = None   # "agendamento" do próximo quadro
+        self._on_done = None    # o que fazer quando o giro terminar
+        self._photo = None      # guarda a imagem atual (o Tk precisa dela viva)
+        self._frame = 0
+        self._total_angle = 0
+
+        try:
+            self.cara, self.coroa = load_coin_faces()
+            self.available = True
+        except OSError as erro:
+            # Sem as imagens o jogo continua funcionando: o sorteio só
+            # acontece sem a animação (ver spin()).
+            print(f"Aviso: imagens da moeda não encontradas ({erro}). "
+                  "O cara ou coroa vai funcionar sem animação.")
+            self.available = False
+            return
+
+        self.show_rest()
+
+    def render(self, face_is_cara, scale_x, lift):
+        """
+        Desenha um quadro: a face escolhida, com a largura multiplicada
+        por scale_x (1 = de frente, perto de 0 = de lado), e erguida
+        "lift" pixels acima da posição de repouso.
+        """
+        face = self.cara if face_is_cara else self.coroa
+        width = max(2, round(COIN_SIZE * scale_x))
+        coin = face.resize((width, COIN_SIZE), Image.BILINEAR)
+
+        # Quadro com altura extra (COIN_LIFT) para a moeda ter por onde subir.
+        # A moeda é colada na horizontal centralizada, e fica na base
+        # quando lift = 0.
+        frame = Image.new("RGBA", (COIN_SIZE, COIN_SIZE + COIN_LIFT), (0, 0, 0, 0))
+        frame.paste(coin, ((COIN_SIZE - width) // 2, COIN_LIFT - round(lift)))
+
+        self._photo = ImageTk.PhotoImage(frame)
+        self.configure(image=self._photo)
+
+    def show_rest(self):
+        """Interrompe qualquer giro e mostra a moeda parada, de cara."""
+        self.stop()
+        if self.available:
+            self.render(True, 1.0, 0)
+
+    def stop(self):
+        if self._after_id is not None:
+            self.after_cancel(self._after_id)
+            self._after_id = None
+        self._on_done = None
+
+    def spin(self, lands_on_cara, on_done):
+        """
+        Arremessa a moeda e, quando ela parar na face sorteada, chama
+        on_done(). lands_on_cara diz em qual face ela deve cair.
+        Sem as imagens, chama on_done() imediatamente.
+        """
+        if not self.available:
+            on_done()
+            return
+
+        self.stop()
+        self._on_done = on_done
+
+        # Voltas inteiras terminam com a cara virada para a frente; para
+        # terminar na coroa, soma meia volta (pi).
+        self._total_angle = 2 * math.pi * COIN_TURNS
+        if not lands_on_cara:
+            self._total_angle += math.pi
+
+        self._frame = 0
+        self._tick()
+
+    def _tick(self):
+        t = self._frame / COIN_FRAMES            # progresso: 0 -> 1
+
+        # O giro começa rápido e vai desacelerando até parar (t = 1).
+        eased = 1 - (1 - t) ** 2
+        angle = self._total_angle * eased
+
+        # A subida e a descida seguem uma parábola: 0 no início e no fim,
+        # máximo (COIN_LIFT) no meio do arremesso.
+        lift = COIN_LIFT * 4 * t * (1 - t)
+
+        self.render(math.cos(angle) >= 0, abs(math.cos(angle)), lift)
+
+        if self._frame >= COIN_FRAMES:           # último quadro: a moeda parou
+            self._after_id = None
+            on_done, self._on_done = self._on_done, None
+            if on_done:
+                on_done()
+            return
+
+        self._frame += 1
+        self._after_id = self.after(COIN_FRAME_MS, self._tick)
+
+
 class TossPage(tk.Frame):
     """
     Toss Page, contains coin toss function
@@ -610,6 +756,10 @@ class TossPage(tk.Frame):
         self.button_heads.grid(row=3, column=1, pady=6)
         self.button_tails.grid(row=4, column=1, pady=6)
 
+        # A moeda que gira. Fica entre os botões e o resultado.
+        self.coin = CoinWidget(self)
+        self.coin.grid(row=5, column=1, pady=(10, 0))
+
         # empty labels that will be updated with outcome after user selects
         self.outcome = ttk.Label(self, text="", style="Statement.TLabel")
         self.outcome.grid(row=6, column=1, pady=(20, 0))
@@ -644,43 +794,47 @@ class TossPage(tk.Frame):
         self.button_tails.configure(text="Coroa", command=self.tails)
         self.button_win.grid_remove()
         self.button_lose.grid_remove()
+        self.coin.show_rest()
 
     def heads(self):
-        """
-        Runs cointoss function in connect4module with chosen call = 1
-        Updates buttons to have no function, so user cannot reselect
-        Updates labels to show outcome of coin toss
-        Makes relevant continue button visible
-        """
-        call = 1
-        result = c4.cointoss(call)
-        self.button_tails.configure(text="", command=donothing)
-        self.button_heads.configure(command=donothing)
-        if result == True:
-            self.outcome.configure(text="Você ganhou o sorteio!")
-            self.nextstep.configure(text="Você jogará primeiro")
-            self.button_win.grid(row=8, column=1, pady=20, ipadx=10)
-        else:
-            self.outcome.configure(text="Você perdeu o sorteio!")
-            self.nextstep.configure(text="O computador jogará primeiro")
-            self.button_lose.grid(row=8, column=1, pady=20, ipadx=10)
-        self.outcome.update()
-        self.nextstep.update()
-        self.button_heads.update()
-        self.button_tails.update()
+        """Jogador escolheu Cara (call = 1)."""
+        self.start_toss(1)
 
     def tails(self):
+        """Jogador escolheu Coroa (call = 0)."""
+        self.start_toss(0)
+
+    def start_toss(self, call):
         """
-        Runs cointoss function in connect4module with chosen call = 0
-        Updates buttons to have no function, so user cannot reselect
-        Updates labels to show outcome of coin toss
-        Makes relevant continue button visible
+        Faz o sorteio com c4.cointoss (call: 1 = cara, 0 = coroa), trava os
+        botões, gira a moeda até a face sorteada e só então mostra o
+        resultado (show_result).
+
+        O sorteio já é decidido aqui, antes da animação — a moeda só
+        "encena" um resultado que já existe, parando na face certa.
         """
-        call = 0
-        result = c4.cointoss(call)
-        self.button_heads.configure(text="", command=donothing)
+        won = c4.cointoss(call)
+
+        # O botão escolhido fica, o outro perde o texto, e nenhum dos dois
+        # responde a novos cliques (nem durante a animação).
+        if call == 1:
+            self.button_tails.configure(text="")
+        else:
+            self.button_heads.configure(text="")
+        self.button_heads.configure(command=donothing)
         self.button_tails.configure(command=donothing)
-        if result == True:
+
+        # Se o jogador acertou, a moeda cai na face que ele escolheu;
+        # se errou, cai na outra.
+        landed = call if won else 1 - call
+        self.coin.spin(landed == 1, lambda: self.show_result(won))
+
+    def show_result(self, won):
+        """
+        Chamado quando a moeda para de girar: mostra o resultado do
+        sorteio e o botão "Continuar" correspondente.
+        """
+        if won:
             self.outcome.configure(text="Você ganhou o sorteio!")
             self.nextstep.configure(text="Você jogará primeiro")
             self.button_win.grid(row=8, column=1, pady=20, ipadx=10)
@@ -688,19 +842,16 @@ class TossPage(tk.Frame):
             self.outcome.configure(text="Você perdeu o sorteio!")
             self.nextstep.configure(text="O computador jogará primeiro")
             self.button_lose.grid(row=8, column=1, pady=20, ipadx=10)
-        self.outcome.update()
-        self.nextstep.update()
-        self.button_heads.update()
-        self.button_tails.update()
 
 
 class LocalTossPage(TossPage):
     """
     Cara ou coroa do modo 1 vs 1 local.
 
-    É a mesma tela do modo contra a máquina (mesmos botões, mesma função
-    c4.cointoss), mas quem escolhe cara ou coroa é o Jogador 1, e o
-    resultado define qual dos dois jogadores começa a partida.
+    É a mesma tela do modo contra a máquina (mesmos botões, mesma moeda
+    animada, mesma função c4.cointoss), mas quem escolhe cara ou coroa é o
+    Jogador 1, e o resultado define qual dos dois jogadores começa a
+    partida. Só o texto do resultado (show_result) é diferente.
     """
 
     def __init__(self, window, controller):
@@ -727,29 +878,12 @@ class LocalTossPage(TossPage):
             text=f"{self.controller.player1_name}, escolha cara ou coroa"
         )
 
-    def heads(self):
-        self.resolve_toss(1)
-
-    def tails(self):
-        self.resolve_toss(0)
-
-    def resolve_toss(self, call):
+    def show_result(self, won):
         """
-        Faz o sorteio com o palpite do Jogador 1 (1 = cara, 0 = coroa),
-        trava os botões e mostra quem começa. Se o Jogador 1 acertar, ele
-        começa; se errar, quem começa é o Jogador 2.
+        Chamado quando a moeda para de girar (a animação e o sorteio são os
+        mesmos da TossPage). Se o Jogador 1 acertou, ele começa; se errou,
+        quem começa é o Jogador 2.
         """
-        won = c4.cointoss(call)
-
-        # Igual ao modo contra a máquina: o botão escolhido fica, o outro
-        # perde o texto, e nenhum dos dois responde a novos cliques.
-        if call == 1:
-            self.button_tails.configure(text="")
-        else:
-            self.button_heads.configure(text="")
-        self.button_heads.configure(command=donothing)
-        self.button_tails.configure(command=donothing)
-
         name1 = self.controller.player1_name
         name2 = self.controller.player2_name
 
