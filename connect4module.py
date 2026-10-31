@@ -38,6 +38,10 @@ MOVE_COLUMN_FULL = "coluna_cheia"
 MOVE_WRONG_TURN = "fora_do_turno"
 MOVE_GAME_OVER = "partida_encerrada"
 
+# Formatos de disputa oferecidos ("melhor de N partidas"). Todos ímpares,
+# para que sempre exista um vencedor.
+SERIES_OPTIONS = (3, 5, 7)
+
 
 def makegraphicalboard():
     """
@@ -774,3 +778,86 @@ class LocalMatch:
             self.current_player = 2 if self.current_player == 1 else 1
 
         return MOVE_OK
+
+
+class BestOfSeries:
+    """
+    Disputa "melhor de N partidas" (N = 3, 5 ou 7), usada nos dois modos de
+    jogo (contra a máquina e 1 vs 1).
+
+    Guarda o placar e as regras da disputa, sem depender da interface:
+
+    - vence a disputa quem fizer primeiro a maioria das partidas: 2 em uma
+      melhor de 3, 3 em uma melhor de 5 e 4 em uma melhor de 7;
+    - cada partida vencida vale 1 ponto. Um empate não dá ponto a ninguém:
+      a disputa continua e a partida seguinte é jogada normalmente (por
+      isso uma disputa pode ter mais de N partidas se houver empates);
+    - quem abre cada partida se alterna, já que começar o jogo é uma
+      vantagem no Connect 4. A primeira partida é aberta por
+      `first_starter` (decidido no cara ou coroa).
+
+    Os jogadores são identificados por 1 e 2, os mesmos números de
+    LocalMatch e de checkgamestate: o Jogador 1 usa as peças vermelhas (no
+    modo contra a máquina, é o humano) e o Jogador 2 as amarelas (no modo
+    contra a máquina, é o computador).
+    """
+
+    def __init__(self, best_of=3, first_starter=1):
+        if best_of < 1 or best_of % 2 == 0:
+            raise ValueError("best_of deve ser um número ímpar (3, 5, 7...)")
+        if first_starter not in (1, 2):
+            raise ValueError("first_starter deve ser 1 ou 2")
+
+        self.best_of = best_of
+        self.wins_needed = best_of // 2 + 1     # vitórias para levar a disputa
+        self.wins = {1: 0, 2: 0}                # pontos de cada jogador
+        self.draws = 0                          # empates (não pontuam)
+        self.games_played = 0                   # partidas já concluídas
+        self.starter = first_starter            # quem abre a partida atual
+
+    @property
+    def finished(self):
+        """True quando algum jogador já fez a maioria das partidas."""
+        return max(self.wins.values()) >= self.wins_needed
+
+    @property
+    def winner(self):
+        """Número do jogador que venceu a disputa (1 ou 2), ou None."""
+        for player in (1, 2):
+            if self.wins[player] >= self.wins_needed:
+                return player
+        return None
+
+    @property
+    def current_game(self):
+        """Número da partida em andamento (1, 2, 3...)."""
+        return self.games_played + 1
+
+    def record_game(self, state):
+        """
+        Registra o resultado de uma partida que acabou de terminar.
+
+        `state` é o valor devolvido por checkgamestate: PLAYER1_WINS,
+        PLAYER2_WINS ou DRAW. Atualiza o placar e, se a disputa continuar,
+        passa a abertura da próxima partida para o outro jogador.
+
+        Devolve True se esta partida encerrou a disputa.
+        """
+        if self.finished:
+            raise RuntimeError("a disputa já terminou")
+
+        if state == PLAYER1_WINS:
+            self.wins[1] += 1
+        elif state == PLAYER2_WINS:
+            self.wins[2] += 1
+        elif state == DRAW:
+            self.draws += 1
+        else:
+            raise ValueError("a partida ainda não terminou")
+
+        self.games_played += 1
+
+        if not self.finished:
+            self.starter = 2 if self.starter == 1 else 1
+
+        return self.finished
