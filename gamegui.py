@@ -27,6 +27,17 @@ MUTED_TEXT_COLOR = "#6C7A89"  # cinza-azulado, para textos secundários
 PLAYER1_COLOR = "#C1121F"   # Jogador 1 (peças vermelhas)
 PLAYER2_COLOR = "#A67C00"   # Jogador 2 (peças amarelas)
 
+# Placar da disputa "melhor de N" (ScoreBoard) e ritmo entre as partidas
+CARD_COLOR = "#FFFFFF"            # fundo do cartão do placar
+CARD_BORDER_COLOR = "#D8D3C7"     # borda e divisórias do cartão
+SCORE_COLUMN_WIDTH = 210          # espaço (px) reservado ao placar, nos dois lados do tabuleiro
+SCORE_NAME_WRAP = 110             # largura (px) em que nomes grandes quebram de linha
+NEXT_GAME_DELAY_MS = 2200         # pausa entre o fim de uma partida e o início da próxima (ms)
+SCORE_TITLE_FONT = ("Arial", 15, "bold")
+SCORE_SMALL_FONT = ("Segoe UI", 11)
+SCORE_NAME_FONT = ("Segoe UI", 13, "bold")
+SCORE_NUMBER_FONT = ("Arial", 28, "bold")
+
 # Fonte de destaque (títulos)
 # Fonte de corpo (textos/instruções)
 TITLE_FONT = ("Arial", 34, "bold")
@@ -151,6 +162,19 @@ class Connect4App(tk.Tk):
         # ou coroa (LocalTossPage) e lido pela LocalBoardPage.
         self.local_first_player = 1
 
+        # Escolhas feitas antes da partida e lidas pelas telas de jogo:
+        #   game_mode      -> "computer" (contra a máquina) ou "local" (1 vs 1)
+        #   series_best_of -> formato da disputa: 3, 5 ou 7 partidas
+        # Os dois são definidos antes do cara ou coroa (veja open_series_page
+        # e SeriesPage).
+        self.game_mode = "computer"
+        self.series_best_of = 3
+
+        # Tela atual e a anterior, atualizadas por show_frame(). Algumas
+        # telas usam a anterior para saber de onde o usuário está chegando.
+        self.current_page = None
+        self.previous_page = None
+
         container = tk.Frame(self, background=BG_COLOR)
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
@@ -160,7 +184,7 @@ class Connect4App(tk.Tk):
         self.frames = {}
 
         # creates each page and adds it to container
-        for f in (StartPage, RulesPage, PlayMenuPage, LocalPage,
+        for f in (StartPage, RulesPage, PlayMenuPage, LocalPage, SeriesPage,
                   TossPage, LocalTossPage, BoardPageLose, BoardPageWin,
                   LocalBoardPage, CreditsPage):
             frame = f(container, self)
@@ -174,8 +198,8 @@ class Connect4App(tk.Tk):
         # Importante: aqui passamos só a posição ("+x+y") para o geometry(),
         # e NÃO um tamanho fixo ("LARGURAxALTURA+x+y"). Se passássemos um
         # tamanho fixo, a janela pararia de se redimensionar sozinha quando
-        # o conteúdo muda — por exemplo, quando os botões "Jogar de Novo" e
-        # "Voltar ao Menu" aparecem ao fim de uma partida. Como aqui só a
+        # o conteúdo muda — por exemplo, quando o botão "Voltar ao Menu"
+        # aparece ao fim de uma disputa. Como aqui só a
         # posição é definida, a janela continua se ajustando normalmente,
         # só que já nasce centralizada na tela.
         self.update_idletasks()
@@ -192,6 +216,9 @@ class Connect4App(tk.Tk):
 
         frame = self.frames[page]
 
+        self.previous_page = self.current_page
+        self.current_page = page
+
         # Algumas telas (TossPage, BoardPageWin, BoardPageLose) guardam o
         # estado de uma partida/sorteio anterior. Sem isso, ao voltar pra
         # elas depois de já ter jogado uma vez, ficariam "travadas" no
@@ -202,6 +229,15 @@ class Connect4App(tk.Tk):
             frame.on_show()
 
         frame.tkraise()
+
+    def open_series_page(self, mode):
+        """
+        Guarda o modo de jogo escolhido ("computer" ou "local") e abre a
+        pergunta "melhor de 3, 5 ou 7?". É o passo que vem antes do cara
+        ou coroa nos dois modos.
+        """
+        self.game_mode = mode
+        self.show_frame(SeriesPage)
 
 
 class StartPage(tk.Frame):
@@ -346,7 +382,7 @@ class PlayMenuPage(tk.Frame):
             self,
             text="Jogar contra a Máquina",
             style="Primary.TButton",
-            command=lambda: controller.show_frame(TossPage),
+            command=lambda: controller.open_series_page("computer"),
         )
         button_machine.grid(row=2, column=1, pady=10, ipadx=10)
 
@@ -451,6 +487,11 @@ class LocalPage(tk.Frame):
         """Chamado automaticamente pelo show_frame() sempre que o usuário
         chega a esta tela: limpa os campos e a mensagem, para cada nova
         partida começar com a tela de nomes vazia."""
+        # Se o usuário só voltou da pergunta "quantas partidas?" para
+        # corrigir algo, mantém o que ele já tinha digitado.
+        if self.controller.previous_page is SeriesPage:
+            return
+
         self.entry_p1.delete(0, tk.END)
         self.entry_p2.delete(0, tk.END)
         self.set_message(self.HINT_TEXT, MUTED_TEXT_COLOR)
@@ -465,7 +506,8 @@ class LocalPage(tk.Frame):
         self.message.configure(text=text, foreground=color)
 
     def start_game(self):
-        """Lê os nomes digitados, valida e abre a tela do tabuleiro."""
+        """Lê os nomes digitados, valida e segue para a escolha de quantas
+        partidas serão disputadas."""
         name1 = self.entry_p1.get().strip() or "Jogador 1"
         name2 = self.entry_p2.get().strip() or "Jogador 2"
 
@@ -479,7 +521,73 @@ class LocalPage(tk.Frame):
 
         self.controller.player1_name = name1
         self.controller.player2_name = name2
-        self.controller.show_frame(LocalTossPage)
+        self.controller.open_series_page("local")
+
+
+class SeriesPage(tk.Frame):
+    """
+    Pergunta quantas partidas serão disputadas — melhor de 3, 5 ou 7 —
+    antes do cara ou coroa. É a mesma tela nos dois modos de jogo; o modo
+    escolhido (controller.game_mode) só decide para onde ela segue.
+
+    Vence a disputa quem fizer primeiro a maioria das partidas (2 em uma
+    melhor de 3, 3 em uma melhor de 5, 4 em uma melhor de 7).
+    """
+
+    def __init__(self, window, controller):
+
+        ttk.Frame.__init__(self, window, style="TFrame")
+        self.controller = controller
+        self.grid_columnconfigure(1, weight=1)
+
+        title = ttk.Label(self, text="Quantas Partidas?", style="Title.TLabel")
+        title.configure(font=("Arial", 28, "bold"))
+        title.grid(row=1, column=1, pady=(60, 6))
+
+        subtitle = ttk.Label(
+            self, text="Escolha o formato da disputa", style="Subtitle.TLabel"
+        )
+        subtitle.grid(row=2, column=1, pady=(0, 24))
+
+        # Um botão por formato (c4.SERIES_OPTIONS), com uma dica embaixo de
+        # quantas vitórias são necessárias. Clicar no botão já confirma.
+        row = 3
+        for best_of in c4.SERIES_OPTIONS:
+            button = ttk.Button(
+                self, text=f"Melhor de {best_of}", style="Primary.TButton",
+                command=lambda n=best_of: self.choose(n),
+            )
+            button.grid(row=row, column=1, pady=(8, 0), ipadx=10)
+
+            hint = ttk.Label(
+                self, text=f"Vence quem fizer {best_of // 2 + 1} vitórias",
+                style="Body.TLabel", foreground=MUTED_TEXT_COLOR,
+            )
+            hint.grid(row=row + 1, column=1, pady=(2, 8))
+            row += 2
+
+        button_back = ttk.Button(
+            self, text="Voltar", style="Secondary.TButton",
+            command=self.go_back,
+        )
+        button_back.grid(row=row, column=1, pady=(24, 10), ipadx=10)
+
+    def choose(self, best_of):
+        """Guarda o formato escolhido e segue para o cara ou coroa do modo
+        de jogo atual."""
+        self.controller.series_best_of = best_of
+
+        if self.controller.game_mode == "local":
+            self.controller.show_frame(LocalTossPage)
+        else:
+            self.controller.show_frame(TossPage)
+
+    def go_back(self):
+        """Volta para a tela de onde o usuário veio, conforme o modo."""
+        if self.controller.game_mode == "local":
+            self.controller.show_frame(LocalPage)
+        else:
+            self.controller.show_frame(PlayMenuPage)
 
 
 class CreditsPage(tk.Frame):
@@ -901,16 +1009,118 @@ class LocalTossPage(TossPage):
         self.button_win.grid(row=8, column=1, pady=20, ipadx=10)
 
 
+class ScoreBoard(tk.Frame):
+    """
+    Placar da disputa "melhor de N", mostrado à direita do tabuleiro.
+
+    Exibe o formato da disputa, o nome e os pontos (vitórias) de cada
+    jogador, e em que partida a disputa está. Os nomes aparecem na cor das
+    peças de cada jogador.
+
+    É só a parte visual: quem guarda a contagem e as regras é o
+    c4.BestOfSeries, e esta classe apenas mostra o que ele informa.
+    """
+
+    def __init__(self, master):
+        tk.Frame.__init__(
+            self, master, background=CARD_COLOR,
+            highlightthickness=1, highlightbackground=CARD_BORDER_COLOR,
+        )
+        self.grid_columnconfigure(0, weight=1)
+
+        title = tk.Label(
+            self, text="PLACAR", font=SCORE_TITLE_FONT,
+            background=CARD_COLOR, foreground=TEXT_COLOR,
+        )
+        title.grid(row=0, column=0, columnspan=2, pady=(12, 0))
+
+        self.format_label = tk.Label(
+            self, text="", font=SCORE_SMALL_FONT,
+            background=CARD_COLOR, foreground=MUTED_TEXT_COLOR,
+        )
+        self.format_label.grid(row=1, column=0, columnspan=2)
+
+        self.add_divider(row=2)
+
+        # Uma linha por jogador: o nome à esquerda e os pontos à direita.
+        self.name_labels = {}
+        self.score_labels = {}
+        for player in (1, 2):
+            name = tk.Label(
+                self, text="", font=SCORE_NAME_FONT, background=CARD_COLOR,
+                wraplength=SCORE_NAME_WRAP, justify="left", anchor="w",
+            )
+            name.grid(row=2 + player, column=0, sticky="w",
+                      padx=(14, 6), pady=4)
+
+            score = tk.Label(
+                self, text="0", font=SCORE_NUMBER_FONT, background=CARD_COLOR,
+                width=2, anchor="e",
+            )
+            score.grid(row=2 + player, column=1, sticky="e",
+                       padx=(0, 14), pady=4)
+
+            self.name_labels[player] = name
+            self.score_labels[player] = score
+
+        self.add_divider(row=5)
+
+        self.footer_label = tk.Label(
+            self, text="", font=SCORE_SMALL_FONT,
+            background=CARD_COLOR, foreground=MUTED_TEXT_COLOR,
+        )
+        self.footer_label.grid(row=6, column=0, columnspan=2, pady=(0, 12))
+
+    def add_divider(self, row):
+        """Linha fina separando as partes do cartão."""
+        divider = tk.Frame(self, height=1, background=CARD_BORDER_COLOR)
+        divider.grid(row=row, column=0, columnspan=2, sticky="ew",
+                     padx=12, pady=8)
+
+    def setup(self, name1, name2, color1, color2, series):
+        """Prepara o placar para uma disputa nova: nomes, cores e formato."""
+        names = {1: name1, 2: name2}
+        colors = {1: color1, 2: color2}
+        for player in (1, 2):
+            self.name_labels[player].configure(
+                text=names[player], foreground=colors[player]
+            )
+            self.score_labels[player].configure(foreground=colors[player])
+
+        self.format_label.configure(text=f"Melhor de {series.best_of}")
+        self.refresh(series)
+
+    def refresh(self, series):
+        """Atualiza os pontos e o rodapé de acordo com a disputa."""
+        for player in (1, 2):
+            self.score_labels[player].configure(text=str(series.wins[player]))
+
+        if series.finished:
+            footer = "Disputa encerrada"
+        else:
+            footer = f"Partida {series.current_game}"
+            if series.draws:
+                plural = "s" if series.draws > 1 else ""
+                footer += f" · {series.draws} empate{plural}"
+        self.footer_label.configure(text=footer)
+
+
 class BaseBoardPage(tk.Frame):
     """
     Base comum de todas as telas de tabuleiro (contra a máquina e 1 vs 1).
 
     Monta a interface compartilhada — título, tabuleiro, botões de coluna
-    (a-g), mensagem de status e os botões "Jogar de Novo" / "Voltar ao
-    Menu" — e oferece os métodos de apoio usados durante a partida.
+    (a-g), placar, mensagens e o botão "Voltar ao Menu" — e cuida da
+    disputa "melhor de N": guarda o placar (c4.BestOfSeries), atualiza o
+    painel de pontos a cada partida concluída, inicia sozinha a partida
+    seguinte e mostra o resultado final quando alguém vence a disputa.
 
-    Cada subclasse só implementa a própria regra de turno em new_game() e
-    choose_column().
+    Cada subclasse só implementa o que é próprio do seu modo:
+        player_name(player)  -> nome exibido de cada jogador (1 ou 2)
+        first_starter()      -> quem abre a primeira partida da disputa
+        new_game()           -> prepara a próxima partida (tabuleiro novo)
+        choose_column(col)   -> trata a jogada e, quando a partida termina,
+                                chama game_finished(resultado)
     """
 
     def __init__(self, window, controller):
@@ -919,10 +1129,13 @@ class BaseBoardPage(tk.Frame):
         self.controller = controller
 
         # Deixa as colunas das laterais ocuparem o espaço que sobrar
-        # para manter o conteúdo no meio da tela
+        # para manter o conteúdo no meio da tela. As duas têm a mesma
+        # largura mínima: a da direita abriga o placar, e a da esquerda
+        # reserva o mesmo espaço do outro lado, para o tabuleiro continuar
+        # exatamente no centro.
 
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(2, weight=1)
+        self.grid_columnconfigure(0, weight=1, minsize=SCORE_COLUMN_WIDTH)
+        self.grid_columnconfigure(2, weight=1, minsize=SCORE_COLUMN_WIDTH)
 
         # Faz a mesma coisa com as linhas de cima e de baixo
 
@@ -934,15 +1147,25 @@ class BaseBoardPage(tk.Frame):
         title.grid(row=1, column=1, pady=(20, 0))
 
         # "statement" e os botões de coluna são guardados como atributos
-        # (self.xxx), e não como variáveis locais do __init__. Isso é
-        # necessário para que o botão de "Reiniciar" consiga encontrá-los e
-        # reconfigurá-los depois, mesmo esse __init__ só rodando uma única
-        # vez durante toda a vida do aplicativo.
+        # (self.xxx), e não como variáveis locais do __init__, para que o
+        # restante da classe consiga encontrá-los e reconfigurá-los depois,
+        # mesmo esse __init__ só rodando uma única vez durante toda a vida
+        # do aplicativo.
 
+        # Mensagem principal: de quem é a vez e o resultado de cada partida.
         self.statement = ttk.Label(
-            self, text="Escolha uma coluna", style="Statement.TLabel"
+            self, text="Escolha uma coluna", style="Statement.TLabel",
+            wraplength=420, justify="center",
         )
         self.statement.grid(row=4, column=1, pady=(60, 0))
+
+        # Linha de apoio, logo abaixo: aviso de que a próxima partida vai
+        # começar e, no fim da disputa, o placar final.
+        self.detail = ttk.Label(
+            self, text="", style="Body.TLabel",
+            wraplength=420, justify="center",
+        )
+        self.detail.grid(row=5, column=1, pady=(6, 0))
 
         # Cria uma área para colocar os botões embaixo do tabuleiro
 
@@ -976,41 +1199,146 @@ class BaseBoardPage(tk.Frame):
 
             self.buttons.append(btn)
 
-        # Botão de reiniciar a partida. Criado aqui junto com o resto da
-        # tela, mas só fica visível (via .grid) depois que a partida atual
-        # termina — veja end_game() e new_game().
+        # Único botão do fim da disputa. Criado aqui junto com o resto da
+        # tela, mas só fica visível (via .grid) depois que alguém vence a
+        # disputa — veja show_series_result(). Entre uma partida e outra
+        # não há botão: a próxima começa sozinha.
 
-        self.restart_button = ttk.Button(
-            self, text="Jogar de Novo", style="Primary.TButton",
-            command=self.new_game,
-        )
         self.menu_button = ttk.Button(
             self, text="Voltar ao Menu", style="Secondary.TButton",
             command=lambda: controller.show_frame(PlayMenuPage),
         )
 
+        # Placar, à direita do tabuleiro (a coluna 2 foi reservada para ele).
+        self.scoreboard = ScoreBoard(self)
+        self.scoreboard.grid(row=2, column=2, sticky="nw", padx=(20, 0))
+
         # Desenho do tabuleiro atualmente na tela. Guardado para que
         # redraw_board() possa descartar o anterior a cada jogada.
         self.canvas = None
 
-        # Começa a primeira partida desta tela assim que ela é criada.
-        self.new_game()
+        # Disputa em andamento (c4.BestOfSeries) e a pausa agendada para
+        # começar a próxima partida (guardada para poder ser cancelada).
+        self.series = None
+        self.next_game_job = None
+
+        # Começa a primeira disputa desta tela assim que ela é criada.
+        self.start_series()
 
     def on_show(self):
         """Chamado automaticamente pelo show_frame() sempre que o
-        usuário navega até esta tela — garante uma partida nova, mesmo
-        se a tela já tiver sido usada antes (ex: jogou, voltou ao menu
-        e ganhou/perdeu o mesmo sorteio de novo).
+        usuário navega até esta tela — começa uma disputa nova, com o
+        placar zerado, mesmo se a tela já tiver sido usada antes.
         """
-        self.new_game()
+        self.start_series()
+
+    # ----------------------------------------------- partes de cada modo
+
+    def player_name(self, player):
+        """Nome exibido do jogador 1 ou 2. Implementado nas subclasses."""
+        raise NotImplementedError
+
+    def first_starter(self):
+        """Quem abre a primeira partida (1 ou 2). Implementado nas subclasses."""
+        raise NotImplementedError
 
     def new_game(self):
-        """(Re)inicia a partida do zero. Implementado nas subclasses."""
+        """Prepara a próxima partida da disputa. Implementado nas subclasses."""
         raise NotImplementedError
 
     def choose_column(self, column):
         """Trata o clique em um botão de coluna. Implementado nas subclasses."""
         raise NotImplementedError
+
+    def player_color(self, player):
+        """Cor do jogador (a mesma das peças dele no tabuleiro)."""
+        if player == 1:
+            return PLAYER1_COLOR
+        return PLAYER2_COLOR
+
+    # ------------------------------------------------------------ disputa
+
+    def start_series(self):
+        """
+        Começa uma disputa nova: formato escolhido na SeriesPage, placar
+        zerado e a primeira partida aberta por quem ganhou o cara ou coroa.
+        """
+        self.cancel_next_game()
+
+        self.series = c4.BestOfSeries(
+            self.controller.series_best_of, self.first_starter()
+        )
+        self.scoreboard.setup(
+            self.player_name(1), self.player_name(2),
+            self.player_color(1), self.player_color(2), self.series,
+        )
+        self.new_game()
+
+    def game_finished(self, state):
+        """
+        Chamada pelas subclasses quando uma partida termina (vitória de
+        alguém ou empate; `state` é o resultado de checkgamestate).
+
+        Registra o resultado na disputa e atualiza o placar. Em seguida:
+        se alguém já fez a maioria das partidas, mostra o resultado final;
+        senão, mostra o resultado desta partida e, depois de uma pausa
+        para os jogadores verem o tabuleiro, começa a próxima sozinha.
+        """
+        self.disable_columns()
+
+        series_over = self.series.record_game(state)
+        self.scoreboard.refresh(self.series)
+
+        if series_over:
+            self.show_series_result()
+            return
+
+        if state == c4.DRAW:
+            self.statement.configure(
+                text="Empate! Ninguém pontua.", foreground=TEXT_COLOR
+            )
+        else:
+            winner = 1 if state == c4.PLAYER1_WINS else 2
+            self.statement.configure(
+                text=f"{self.player_name(winner)} venceu a partida!",
+                foreground=self.player_color(winner),
+            )
+        self.detail.configure(text="Próxima partida em instantes...")
+
+        self.next_game_job = self.after(NEXT_GAME_DELAY_MS, self.begin_next_game)
+
+    def begin_next_game(self):
+        """Fim da pausa entre as partidas: começa a próxima."""
+        self.next_game_job = None
+        self.new_game()
+
+    def cancel_next_game(self):
+        """Cancela a pausa agendada, se houver (usado ao começar uma
+        disputa nova, para uma partida antiga não "vazar" para ela)."""
+        if self.next_game_job is not None:
+            self.after_cancel(self.next_game_job)
+            self.next_game_job = None
+
+    def show_series_result(self):
+        """Mostra quem venceu a disputa, o placar final e o botão de voltar
+        ao menu."""
+        winner = self.series.winner
+        name1 = self.player_name(1)
+        name2 = self.player_name(2)
+        wins1 = self.series.wins[1]
+        wins2 = self.series.wins[2]
+
+        self.statement.configure(
+            text=f"{self.player_name(winner)} venceu a melhor de "
+                 f"{self.series.best_of}!",
+            foreground=self.player_color(winner),
+        )
+        self.detail.configure(
+            text=f"Placar final: {name1} {wins1} x {wins2} {name2}"
+        )
+        self.show_menu_button()
+
+    # ------------------------------------------------------------ desenho
 
     def redraw_board(self):
         """
@@ -1040,22 +1368,10 @@ class BaseBoardPage(tk.Frame):
         for button in self.buttons:
             button.configure(command=donothing)
 
-    def end_game(self, message):
-        """
-        Usada para vitória, derrota e empate: desativa os botões de
-        coluna, mostra a mensagem final e exibe os botões de
-        reiniciar/voltar ao menu.
-        """
-        self.disable_columns()
-        self.statement.configure(text=message)
-        self.show_end_buttons()
+    def show_menu_button(self):
+        self.menu_button.grid(row=10, column=1, pady=(16, 10))
 
-    def show_end_buttons(self):
-        self.restart_button.grid(row=9, column=1, pady=(24, 4), ipadx=6)
-        self.menu_button.grid(row=10, column=1, pady=(0, 10))
-
-    def hide_end_buttons(self):
-        self.restart_button.grid_remove()
+    def hide_menu_button(self):
         self.menu_button.grid_remove()
 
 
@@ -1063,30 +1379,42 @@ class ComputerBoardPage(BaseBoardPage):
     """
     Tabuleiro do modo contra a máquina.
 
-    O jogador usa as peças vermelhas e o computador as amarelas. Depois de
-    cada jogada válida do jogador, o computador responde imediatamente.
-    O atributo computer_starts define quem faz a primeira jogada.
+    O jogador ("Você") usa as peças vermelhas e o computador ("Máquina")
+    as amarelas. Depois de cada jogada válida do jogador, o computador
+    responde imediatamente.
+
+    O atributo computer_starts diz quem abre a PRIMEIRA partida da disputa
+    (resultado do cara ou coroa). Nas partidas seguintes quem abre se
+    alterna — isso é controlado pelo c4.BestOfSeries.
     """
 
     computer_starts = False
 
+    def player_name(self, player):
+        if player == 1:
+            return "Você"
+        return "Máquina"
+
+    def first_starter(self):
+        return 2 if self.computer_starts else 1
+
     def new_game(self):
         """
-        (Re)inicia a partida do zero, nesta mesma tela.
-
-        É chamada tanto na primeira vez que a tela aparece quanto toda
-        vez que o jogador clica no botão "Jogar de Novo" depois do fim
-        de uma partida anterior.
+        Prepara a próxima partida da disputa: tabuleiro vazio e, se for a
+        vez do computador abrir (série.starter == 2), a primeira jogada
+        dele já é feita. É chamada no início da disputa e, depois, sozinha
+        a cada pausa entre as partidas.
         """
         self.board = c4.makearrayboard()
 
-        if self.computer_starts:
+        if self.series.starter == 2:
             self.computer_move()
 
         self.redraw_board()
         self.enable_columns()
-        self.statement.configure(text="Escolha uma coluna")
-        self.hide_end_buttons()
+        self.statement.configure(text="Escolha uma coluna", foreground=TEXT_COLOR)
+        self.detail.configure(text="")
+        self.hide_menu_button()
 
     def computer_move(self):
         """Decide e executa a jogada do computador."""
@@ -1102,9 +1430,9 @@ class ComputerBoardPage(BaseBoardPage):
 
     def continuegame(self):
         """
-        Função principal que toca o jogo para frente. Confere o estado
+        Função principal que toca a partida para frente. Confere o estado
         atual (checkgamestate), faz o computador jogar se a partida
-        continuar, e atualiza a tela conforme o resultado final.
+        continuar e, se ela terminar, avisa a disputa (game_finished).
         """
         gamestate = c4.checkgamestate(self.board)
 
@@ -1117,18 +1445,14 @@ class ComputerBoardPage(BaseBoardPage):
         # é essa marcação que faz o desenho destacá-las com a linha grossa.
         self.redraw_board()
 
-        if gamestate == c4.PLAYER1_WINS:
-            self.end_game("Você Venceu!")
-        elif gamestate == c4.PLAYER2_WINS:
-            self.end_game("Você Perdeu!")
-        elif gamestate == c4.DRAW:
-            self.end_game("Empate!")
+        if gamestate != c4.GAME_ONGOING:
+            self.game_finished(gamestate)
 
 
 class BoardPageWin(ComputerBoardPage):
     """
     Board Page, contains main game
-    If player won toss: o tabuleiro começa vazio e o jogador joga primeiro.
+    If player won toss: o jogador abre a primeira partida da disputa.
     """
 
     computer_starts = False
@@ -1137,7 +1461,7 @@ class BoardPageWin(ComputerBoardPage):
 class BoardPageLose(ComputerBoardPage):
     """
     Board Page, contains main game
-    If player lost toss: o computador faz a primeira jogada.
+    If player lost toss: o computador abre a primeira partida da disputa.
     """
 
     computer_starts = True
@@ -1148,37 +1472,31 @@ class LocalBoardPage(BaseBoardPage):
     Tabuleiro do modo 1 vs 1 local.
 
     Reaproveita toda a interface da BaseBoardPage (título, tabuleiro,
-    botões de coluna, "Jogar de Novo" e "Voltar ao Menu"). A regra de
-    turno, a validação das jogadas e o resultado ficam em c4.LocalMatch,
-    no módulo de regras; esta tela só exibe o que a partida informa.
+    botões de coluna, placar e "Voltar ao Menu"). A regra de turno, a
+    validação das jogadas e o resultado de cada partida ficam em
+    c4.LocalMatch, no módulo de regras; esta tela só exibe o que a
+    partida informa. A disputa "melhor de N" é cuidada pela BaseBoardPage.
     """
-
-    def __init__(self, window, controller):
-        BaseBoardPage.__init__(self, window, controller)
-
-        # Nomes grandes quebram em duas linhas em vez de alargar a janela.
-        self.statement.configure(wraplength=380, justify="center")
 
     def player_name(self, player):
         if player == 1:
             return self.controller.player1_name
         return self.controller.player2_name
 
-    def player_color(self, player):
-        if player == 1:
-            return PLAYER1_COLOR
-        return PLAYER2_COLOR
+    def first_starter(self):
+        """Quem ganhou o cara ou coroa (controller.local_first_player)
+        abre a primeira partida; nas seguintes a abertura se alterna."""
+        return self.controller.local_first_player
 
     def new_game(self):
         """
-        (Re)inicia a partida: tabuleiro vazio e vez de quem ganhou o cara
-        ou coroa (controller.local_first_player). É chamada quando a tela
-        aparece (via on_show) e no botão "Jogar de Novo" — que mantém quem
-        começou, igual ao modo contra a máquina. Os nomes também são lidos
-        do controlador a cada partida, então sempre refletem o que foi
-        digitado na LocalPage.
+        Prepara a próxima partida da disputa: tabuleiro vazio e vez de
+        quem deve abrir (series.starter). É chamada no início da disputa
+        e, depois, sozinha a cada pausa entre as partidas. Os nomes são
+        lidos do controlador, então refletem o que foi digitado na
+        LocalPage.
         """
-        self.match = c4.LocalMatch(self.controller.local_first_player)
+        self.match = c4.LocalMatch(self.series.starter)
         # Mesmo objeto da partida: as jogadas alteram o tabuleiro no lugar,
         # então redraw_board() sempre desenha o estado atual.
         self.board = self.match.board
@@ -1186,7 +1504,8 @@ class LocalBoardPage(BaseBoardPage):
         self.redraw_board()
         self.enable_columns()
         self.show_turn()
-        self.hide_end_buttons()
+        self.detail.configure(text="")
+        self.hide_menu_button()
 
     def show_turn(self):
         """Mostra de quem é a vez, na cor das peças desse jogador."""
@@ -1207,13 +1526,8 @@ class LocalBoardPage(BaseBoardPage):
 
         if not self.match.finished:
             self.show_turn()
-        elif self.match.state == c4.DRAW:
-            self.end_game("Empate!")
-            self.statement.configure(foreground=TEXT_COLOR)
         else:
-            winner = self.match.winner
-            self.end_game(f"{self.player_name(winner)} venceu!")
-            self.statement.configure(foreground=self.player_color(winner))
+            self.game_finished(self.match.state)
 
 
 def donothing():
