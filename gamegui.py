@@ -491,9 +491,8 @@ class CreditsPage(tk.Frame):
             "Análise e Desenvolvimento de Sistemas: Antonio Pires, Hugo "
             "Oliveira, Luiz Felipe, Mateus dos Santos, Nícolas dos Anjos "
             "e Paulo Otávio.\n\n"
-            "As melhorias até o momento foram:\n\n"
+            "As melhorias efetuadas foram:\n\n"
             "• Tradução para português\n"
-            "• Criação de um botão de restart das partidas\n"
             "• Melhorias na parte visual (front-end), adicionando "
             "botões, títulos e cores\n"
             "• Menu na tela inicial, que conta com a explicação das "
@@ -505,7 +504,8 @@ class CreditsPage(tk.Frame):
             "• Criação do modo 1v1 local\n"
             "• Adição de uma moeda para ser mostrada no sorteio do "
             "cara ou coroa\n"
-            "• Efeito sonoro ao jogar o cara ou coroa"
+            "• Efeito sonoro ao jogar o cara ou coroa\n"
+            "• Adição dos modos melhor de 3, melhor de 5 e melhor de 7"
         )
 
         text_area = ttk.Frame(self)
