@@ -130,13 +130,13 @@ janela Tkinter.
 
 ## Capturas de tela
 
-| Tela inicial | Escolha do modo de jogo | Cadastro de jogadores (1 vs 1) |
-| :---: | :---: | :---: |
-| <img width="240" alt="Tela inicial" src="docs/screenshots/tela-inicial.png"> | <img width="240" alt="Escolha do modo de jogo" src="docs/screenshots/modo-de-jogo.png"> | <img width="240" alt="Cadastro de jogadores 1 vs 1" src="docs/screenshots/jogadores-1v1.png"> |
+|                     Tela inicial                     |                     Escolha do modo de jogo                     |                    Cadastro de jogadores (1 vs 1)                     |
+| :--------------------------------------------------: | :-------------------------------------------------------------: | :-------------------------------------------------------------------: |
+| ![Tela inicial](./docs/screenshots/tela-inicial.png) | ![Escolha do modo de jogo](./docs/screenshots/modo-de-jogo.png) | ![Cadastro de jogadores 1 vs 1](./docs/screenshots/jogadores-1v1.png) |
 
-| Partida 1 vs 1 em andamento | Vitória com peças destacadas | Demonstração |
-| :---: | :---: | :---: |
-| <img width="240" alt="Partida 1 vs 1 em andamento" src="docs/screenshots/partida-1v1.png"> | <img width="240" alt="Vitória no modo 1 vs 1" src="docs/screenshots/vitoria-1v1.png"> | <img width="240" alt="Demonstração de partida" src="vd.gif"> |
+|                    Partida 1 vs 1 em andamento                     |                 Vitória com peças destacadas                  |             Demonstração             |
+| :----------------------------------------------------------------: | :-----------------------------------------------------------: | :----------------------------------: |
+| ![Partida 1 vs 1 em andamento](./docs/screenshots/partida-1v1.png) | ![Vitória no modo 1 vs 1](./docs/screenshots/vitoria-1v1.png) | ![Demonstração de partida](./vd.gif) |
 
 ## Licença
 
@@ -146,4 +146,3 @@ Este projeto está licenciado nos termos da licença MIT. Consulte
 ## Agradecimentos
 
 - [Tutorial de Tkinter utilizado como referência](https://www.youtube.com/playlist?list=PLQVvvaa0QuDclKx-QpC9wntnURXVJqLyk)
-

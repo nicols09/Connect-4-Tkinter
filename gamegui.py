@@ -5,8 +5,12 @@ from tkinter import ttk
 import connect4module as c4
 import os
 import math
-import winsound  # <--- Módulo nativo do Windows para reproduzir áudio .wav
 from PIL import Image, ImageTk, ImageSequence
+
+try:
+    import winsound
+except ImportError:
+    winsound = None
 
 matplotlib.use("TkAgg")
 
@@ -711,7 +715,7 @@ class TossPage(tk.Frame):
     def start_toss(self, call):
         # --- TOCAR EFEITO SONORO DA MOEDA CAINDO ---
         sound_path = os.path.join(os.path.dirname(__file__), "som-moeda.wav")
-        if os.path.exists(sound_path):
+        if winsound is not None and os.path.exists(sound_path):
             # SND_FILENAME reproduz o arquivo .wav; SND_ASYNC toca sem travar a interface/animação
             winsound.PlaySound(sound_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
@@ -1126,5 +1130,6 @@ def runapp(app):
         runapp(app)
 
 
-app = Connect4App()
-runapp(app)
+if __name__ == "__main__":
+    app = Connect4App()
+    runapp(app)

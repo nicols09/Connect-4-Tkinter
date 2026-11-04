@@ -70,6 +70,12 @@ class BoardBasicsTest(unittest.TestCase):
         self.assertFalse(c4.checkifvalid(board, -1))
         self.assertFalse(c4.checkifvalid(board, c4.COLUMNS))
 
+    def test_cointoss_returns_boolean_for_both_calls(self):
+        for call in (0, 1):
+            with self.subTest(call=call):
+                result = c4.cointoss(call)
+                self.assertIsInstance(result, (bool, np.bool_))
+
 
 class GameStateTest(unittest.TestCase):
 
