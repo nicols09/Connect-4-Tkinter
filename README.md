@@ -140,8 +140,15 @@ janela Tkinter.
 
 ## Vídeos
 
-- [Demonstração do jogo](./demonstração.mp4)
-- [Sorteio de cara ou coroa](./cara-ou-coroa.mp4)
+<video controls width="640">
+  <source src="https://raw.githubusercontent.com/nicols09/Connect-4-Tkinter/doc/demonstra%C3%A7%C3%A3o.mp4" type="video/mp4">
+  <a href="https://raw.githubusercontent.com/nicols09/Connect-4-Tkinter/doc/demonstra%C3%A7%C3%A3o.mp4">Demonstração do jogo</a>
+</video>
+
+<video controls width="640">
+  <source src="https://raw.githubusercontent.com/nicols09/Connect-4-Tkinter/doc/cara-ou-coroa.mp4" type="video/mp4">
+  <a href="https://raw.githubusercontent.com/nicols09/Connect-4-Tkinter/doc/cara-ou-coroa.mp4">Sorteio de cara ou coroa</a>
+</video>
 
 ## Licença
 
