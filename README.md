@@ -134,9 +134,14 @@ janela Tkinter.
 | :--------------------------------------------------: | :-------------------------------------------------------------: | :-------------------------------------------------------------------: |
 | ![Tela inicial](./docs/screenshots/tela-inicial.png) | ![Escolha do modo de jogo](./docs/screenshots/modo-de-jogo.png) | ![Cadastro de jogadores 1 vs 1](./docs/screenshots/jogadores-1v1.png) |
 
-|                    Partida 1 vs 1 em andamento                     |                 Vitória com peças destacadas                  |             Demonstração             |
-| :----------------------------------------------------------------: | :-----------------------------------------------------------: | :----------------------------------: |
-| ![Partida 1 vs 1 em andamento](./docs/screenshots/partida-1v1.png) | ![Vitória no modo 1 vs 1](./docs/screenshots/vitoria-1v1.png) | ![Demonstração de partida](./vd.gif) |
+|                    Partida 1 vs 1 em andamento                     |                 Vitória com peças destacadas                  |                 Novos modos de jogo                  |
+| :----------------------------------------------------------------: | :-----------------------------------------------------------: | :--------------------------------------------------: |
+| ![Partida 1 vs 1 em andamento](./docs/screenshots/partida-1v1.png) | ![Vitória no modo 1 vs 1](./docs/screenshots/vitoria-1v1.png) | ![Novos modos de jogo](./Novos%20modos%20de%20jogo%20%28melhor%20de%203,%205%20e%207%29.png) |
+
+## Vídeos
+
+- [Demonstração do jogo](./demonstração.mp4)
+- [Sorteio de cara ou coroa](./cara-ou-coroa.mp4)
 
 ## Licença
 
